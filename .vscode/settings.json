@@ -1,0 +1,10 @@
+{
+    "files.exclude": {
+        "*.d": true,
+        "*.o": true,
+        "main": true
+    },
+    "files.associations": {
+        "*.tcc": "cpp"
+    }
+}

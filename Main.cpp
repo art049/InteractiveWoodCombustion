@@ -22,6 +22,8 @@
 #include "Vec3.h"
 #include "Camera.h"
 #include "Mesh.h"
+#include "TreeGraph.h"
+#include "Tree.h"
 #include "GLProgram.h"
 #include "Exception.h"
 
@@ -31,16 +33,16 @@ using namespace std;
 
 static const unsigned int DEFAULT_SCREENWIDTH = 1024;
 static const unsigned int DEFAULT_SCREENHEIGHT = 768;
-static const string DEFAULT_MESH_FILE ("models/sphere.off");
 
-static const string appTitle ("IG3DA - Interactive Wood Combustion for Botanical Tree Models");
+static const string appTitle ("Interactive Wood Combustion for Botanical Tree Models");
 static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
 
 static Camera camera;
-static Mesh mesh;
+static TreeGraph tree_graph;
+static Tree tree(&tree_graph);
 GLProgram * glProgram;
 
 static std::vector<Vec3f> colorResponses; // Cached per-vertex color response, updated at each frame
@@ -49,7 +51,6 @@ void printUsage () {
 	std::cerr << std::endl 
                   << appTitle << std::endl
                   << "Author: " << myName << std::endl << std::endl
-                  << "Usage: ./main [<file.off>]" << std::endl
                   << "Commands:" << std::endl 
                   << "------------------" << std::endl
                   << " ?: Print help" << std::endl
@@ -60,7 +61,7 @@ void printUsage () {
                   << " q, <esc>: Quit" << std::endl << std::endl; 
 }
 
-void init (const char * modelFilename) {
+void init () {
     glewExperimental = GL_TRUE;
     glewInit (); // init glew, which takes in charges the modern OpenGL calls (v>1.2, shaders, etc)
     //glCullFace (GL_BACK);     // Specifies the faces to cull (here the ones pointing away from the camera)
@@ -71,10 +72,9 @@ void init (const char * modelFilename) {
     glEnableClientState (GL_NORMAL_ARRAY);
     glEnableClientState (GL_COLOR_ARRAY);
     glEnable (GL_NORMALIZE);
-	glLineWidth (2.0); // Set the width of edges in GL_LINE polygon mode
+	glLineWidth (5.0); // Set the width of edges in GL_LINE polygon mode
     glClearColor (0.0f, 0.0f, 0.0f, 1.0f); // Background color
-	mesh.loadOFF (modelFilename);
-    colorResponses.resize (mesh.positions ().size ());
+    colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     try {
         glProgram = GLProgram::genVFProgram ("Simple GL Program", "shader.vert", "shader.frag"); // Load and compile pair of shaders
@@ -93,8 +93,8 @@ void init (const char * modelFilename) {
 
 // EXERCISE : the following color response shall be replaced with a proper reflectance evaluation/shadow test/etc.
 void updatePerVertexColorResponse () {
-  std::vector<Vec3f> positions = mesh.positions();
-  std::vector<Vec3f> normals = mesh.normals();
+  std::vector<Vec3f> positions = tree.positions();
+  std::vector<Vec3f> normals = tree.normals();
   Vec3f campos;
   camera.getPos(campos);
   Vec3f lumpos;
@@ -121,6 +121,7 @@ void updatePerVertexColorResponse () {
       color +=(float) (intensity*(kd/M_PI+ks*pow(dot(n,wh),10.f)) * dot(n,wi))*it->getColor();
     }
     colorResponses[i] = color;
+    colorResponses[i] = Vec3f(128,128,128);;
     
         
   }
@@ -128,10 +129,10 @@ void updatePerVertexColorResponse () {
 
 void renderScene () {
     updatePerVertexColorResponse ();
-    glVertexPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(mesh.positions()[0])));
-    glNormalPointer (GL_FLOAT, 3*sizeof (float), (GLvoid*)&(mesh.normals()[0]));
+    glVertexPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(tree.positions()[0])));
+    glNormalPointer (GL_FLOAT, 3*sizeof (float), (GLvoid*)&(tree.normals()[0]));
     glColorPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(colorResponses[0])));
-    glDrawElements (GL_TRIANGLES, 3*mesh.triangles().size(), GL_UNSIGNED_INT, (GLvoid*)((&mesh.triangles()[0])));
+    glDrawElements (GL_TRIANGLES, 3*tree.triangles().size(), GL_UNSIGNED_INT, (GLvoid*)((&tree.triangles()[0])));
 }
 
 void reshape(int w, int h) {
@@ -190,7 +191,7 @@ void idle () {
         FPS = counter;
         counter = 0;
         static char winTitle [128];
-        unsigned int numOfTriangles = mesh.triangles ().size ();
+        unsigned int numOfTriangles = tree.triangles ().size ();
         sprintf (winTitle, "Number Of Triangles: %d - FPS: %d", numOfTriangles, FPS);
         string title = appTitle + " - By " + myName  + " - " + winTitle;
         glutSetWindowTitle (title.c_str ());
@@ -208,7 +209,7 @@ int main (int argc, char ** argv) {
     glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     window = glutCreateWindow (appTitle.c_str ());
-    init (argc == 2 ? argv[1] : DEFAULT_MESH_FILE.c_str ());
+    init ();
     glutIdleFunc (idle);
     glutReshapeFunc (reshape);
     glutDisplayFunc (display);

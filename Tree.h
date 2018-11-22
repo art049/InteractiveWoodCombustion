@@ -1,14 +1,3 @@
-// --------------------------------------------------------------------------
-// Copyright(C) 2009-2016
-// Tamy Boubekeur
-// 
-// Permission granted to use this code only for teaching projects and 
-// private practice.
-//
-// Do not distribute this code outside the teaching assignements.                                                                           
-// All rights reserved.                                                       
-// --------------------------------------------------------------------------
-
 #pragma once
 #include <cmath>
 #include <vector>
@@ -17,7 +6,7 @@
 #include "TreeGraph.h"
 
 
-/// A Tree class, storing a list of vertices and a list of triangles indexed over it.
+/// A Tree mesh class, storing a list of vertices and a list of triangles indexed over it.
 class Tree {
 public:
     Tree (TreeGraph * treegraph);
@@ -33,9 +22,6 @@ public:
     /// Empty the positions, normals and triangles arrays.
     void clear ();
 
-	/// Loads the Tree from a <file>.off
-	void loadOFF (const std::string & filename);
-    
     /// Compute smooth per-vertex normals
     void recomputeNormals ();
 

@@ -14,6 +14,9 @@
 #include <cmath>
 #include <iostream>
 
+#include <glm/glm.hpp>
+#include <glm/vec3.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 /// Vector in 3 dimensions, with basics operators overloaded.
 template <typename T>
 class Vec3 {
@@ -218,7 +221,18 @@ public:
     }
     v = cross (*this, u);
   }
-
+  inline Vec3 orthogonal() const {
+    return fabs(m_p[0]) > fabs(m_p[2]) ? Vec3(-m_p[1], m_p[0], 0.0)
+                                       : Vec3(0.0, -m_p[2], m_p[1]);
+  }
+  inline Vec3 rotated(const Vec3 & N, float angle) {
+   glm::vec3 glmvec(this->m_p[0], this->m_p[1], this->m_p[2]);
+   glm::vec3 glmN(N.m_p[0], N.m_p[1], N.m_p[2]);
+   glm::mat4 rotMat(1);
+   rotMat = glm::rotate(rotMat, glm::radians(angle), glmN);
+   glm::vec3 out = glm::vec3(rotMat * glm::vec4(glmvec, 1.0));
+   return Vec3(out[0],out[1],out[2]);
+  }
   inline Vec3 projectOn (const Vec3 & N, const Vec3 & P) const {
     T w = dot (((*this) - P), N);
     return (*this) - (N * w);

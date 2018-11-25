@@ -72,7 +72,7 @@ void init () {
     glEnableClientState (GL_NORMAL_ARRAY);
     glEnableClientState (GL_COLOR_ARRAY);
     glEnable (GL_NORMALIZE);
-	glLineWidth (5.0); // Set the width of edges in GL_LINE polygon mode
+	glLineWidth (2.0); // Set the width of edges in GL_LINE polygon mode
     glClearColor (0.0f, 0.0f, 0.0f, 1.0f); // Background color
     colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
@@ -121,7 +121,7 @@ void updatePerVertexColorResponse () {
       color +=(float) (intensity*(kd/M_PI+ks*pow(dot(n,wh),10.f)) * dot(n,wi))*it->getColor();
     }
     colorResponses[i] = color;
-    colorResponses[i] = Vec3f(128,128,128);;
+    //colorResponses[i] = Vec3f(128,128,128);
     
         
   }

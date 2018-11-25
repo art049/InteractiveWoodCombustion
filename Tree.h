@@ -21,10 +21,8 @@ public:
 
     /// Empty the positions, normals and triangles arrays.
     void clear ();
-
     /// Compute smooth per-vertex normals
     void recomputeNormals ();
-
     /// scale to the unit cube and center at original
     void centerAndScaleToUnit ();
 

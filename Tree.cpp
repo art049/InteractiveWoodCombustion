@@ -19,14 +19,30 @@
 using namespace std;
 
 Tree::Tree(TreeGraph * graph) {
-    m_positions.resize(2*graph->edges_count);
-    m_triangles.resize(graph->edges_count);
+    const int circular_subdiv = 3;
+    const float radius = .08f;
+    m_positions.resize(2 * circular_subdiv * graph->edges_count);
+    m_triangles.resize(2 * circular_subdiv * graph->edges_count);
     for(int i = 0; i < graph->edges_count; i++){
         Edge * e = &graph->edges[i];
-        m_positions[2*i] = e->n_source->position;
-        m_positions[2*i+1] = e->n_target->position;
-        m_triangles[i][0] = 2*i;
-        m_triangles[i][1] = m_triangles[i][2] = 2*i + 1;
+        Vec3f axis = e->n_target->position - e->n_source->position;
+        Vec3f orth_ref = axis.orthogonal();
+        orth_ref.normalize();
+        std::cout<< orth_ref << std::endl;
+        orth_ref *= radius;
+        unsigned int index = 2 * i * circular_subdiv;
+        for(int j = 0; j < circular_subdiv; j++){
+            int angle = j * (360 / circular_subdiv);
+            Vec3f current = orth_ref.rotated(axis, angle);
+            m_positions[index + j] = current + e->n_source->position;
+            m_positions[index + circular_subdiv + j] = current + e->n_target->position;
+            m_triangles[index + j] = Triangle(index+j, 
+                                              index+(j+1)%circular_subdiv, 
+                                              index+j+circular_subdiv);
+            m_triangles[index + circular_subdiv + j] = Triangle(index+(j+1)%circular_subdiv,
+                                                                index+circular_subdiv+(j+2)%circular_subdiv,
+                                                                index+j+circular_subdiv);
+        }        
     }
     centerAndScaleToUnit ();
     recomputeNormals ();

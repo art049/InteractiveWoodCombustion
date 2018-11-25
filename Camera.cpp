@@ -218,7 +218,13 @@ void Camera::handleMouseClickEvent (int button, int state, int x, int y) {
         mouseRotatePressed = false;
         mouseZoomPressed = false;
     } else {
-        if (button == GLUT_LEFT_BUTTON) {
+        if(button == GLUT_LEFT_BUTTON && mouseMovePressed || button == GLUT_RIGHT_BUTTON && mouseRotatePressed){
+            lastZoom = y;
+            mouseMovePressed = false;
+            mouseRotatePressed = false;
+            mouseZoomPressed = true;
+        }
+        else if (button == GLUT_LEFT_BUTTON) {
             beginRotate (x, y);
             mouseMovePressed = false;
             mouseRotatePressed = true;

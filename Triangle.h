@@ -13,6 +13,7 @@
 #include <cmath>
 #include <vector>
 #include "Vec3.h"
+#include <iostream>
 
 /// A Triangle class expressed as a triplet of indices (unsigned integer over an external vertex list)
 class Triangle {
@@ -46,6 +47,12 @@ public:
     
     inline unsigned int operator[] (unsigned int i) const { return m_v[i]; }
 
+    inline friend std::ostream & operator << (std::ostream &output, const Triangle &t);
 private:
     unsigned int m_v[3];
 };
+
+std::ostream & operator << (std::ostream & output, const Triangle &t) {
+    output << t.m_v[0] << " " << t.m_v[1] << " " << t.m_v[2];
+    return output;
+}

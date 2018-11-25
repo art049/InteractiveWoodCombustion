@@ -19,8 +19,8 @@
 using namespace std;
 
 Tree::Tree(TreeGraph * graph) {
-    const int circular_subdiv = 3;
-    const float radius = .08f;
+    const int circular_subdiv = 6;
+    const float radius = .12f;
     m_positions.resize(2 * circular_subdiv * graph->edges_count);
     m_triangles.resize(2 * circular_subdiv * graph->edges_count);
     for(int i = 0; i < graph->edges_count; i++){
@@ -28,7 +28,6 @@ Tree::Tree(TreeGraph * graph) {
         Vec3f axis = e->n_target->position - e->n_source->position;
         Vec3f orth_ref = axis.orthogonal();
         orth_ref.normalize();
-        std::cout<< orth_ref << std::endl;
         orth_ref *= radius;
         unsigned int index = 2 * i * circular_subdiv;
         for(int j = 0; j < circular_subdiv; j++){
@@ -40,7 +39,7 @@ Tree::Tree(TreeGraph * graph) {
                                               index+(j+1)%circular_subdiv, 
                                               index+j+circular_subdiv);
             m_triangles[index + circular_subdiv + j] = Triangle(index+(j+1)%circular_subdiv,
-                                                                index+circular_subdiv+(j+2)%circular_subdiv,
+                                                                index+circular_subdiv+(j+1)%circular_subdiv,
                                                                 index+j+circular_subdiv);
         }        
     }

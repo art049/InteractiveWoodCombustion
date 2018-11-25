@@ -31,8 +31,8 @@
 
 using namespace std;
 
-static const unsigned int DEFAULT_SCREENWIDTH = 1024;
-static const unsigned int DEFAULT_SCREENHEIGHT = 768;
+static const unsigned int DEFAULT_SCREENWIDTH = 2048;
+static const unsigned int DEFAULT_SCREENHEIGHT = 1536;
 
 static const string appTitle ("Interactive Wood Combustion for Botanical Tree Models");
 static const string myName ("Arthur Pastel");
@@ -41,7 +41,7 @@ static unsigned int FPS = 0;
 static bool fullScreen = false;
 
 static Camera camera;
-static TreeGraph tree_graph;
+static TreeGraph tree_graph(FIVE_BRANCH);
 static Tree tree(&tree_graph);
 GLProgram * glProgram;
 
@@ -64,8 +64,8 @@ void printUsage () {
 void init () {
     glewExperimental = GL_TRUE;
     glewInit (); // init glew, which takes in charges the modern OpenGL calls (v>1.2, shaders, etc)
-    //glCullFace (GL_BACK);     // Specifies the faces to cull (here the ones pointing away from the camera)
-    //glEnable (GL_CULL_FACE); // Enables face culling (based on the orientation defined by the CW/CCW enumeration).
+    glCullFace (GL_BACK);     // Specifies the faces to cull (here the ones pointing away from the camera)
+    glEnable (GL_CULL_FACE); // Enables face culling (based on the orientation defined by the CW/CCW enumeration).
     glDepthFunc (GL_LESS); // Specify the depth test for the z-buffer
     glEnable (GL_DEPTH_TEST); // Enable the z-buffer in the rasterization
     glEnableClientState (GL_VERTEX_ARRAY);
@@ -73,7 +73,7 @@ void init () {
     glEnableClientState (GL_COLOR_ARRAY);
     glEnable (GL_NORMALIZE);
 	glLineWidth (2.0); // Set the width of edges in GL_LINE polygon mode
-    glClearColor (0.0f, 0.0f, 0.0f, 1.0f); // Background color
+    glClearColor (.5f, .5f, .5f, 0.f); // Background color
     colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     try {

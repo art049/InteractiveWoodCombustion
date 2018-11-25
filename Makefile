@@ -6,8 +6,8 @@ LIBS = -L$(OPENGL_PATH) -lglut -lGLU -lGL -lGLEW -lm -lpthread
 CC = g++
 CPP = g++
 
-FLAGS = -O2 -Wall -g -pthread
-
+FLAGS = -std=c++11 -O2 -Wall -g -pthread
+LDFLAGS = -std=c++11
 CFLAGS = $(FLAGS)
 CXXFLAGS = $(FLAGS)
 

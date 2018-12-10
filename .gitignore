@@ -1,3 +1,3 @@
 *.d
 *.o
-./main
+main

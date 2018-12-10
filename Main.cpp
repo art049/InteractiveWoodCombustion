@@ -33,13 +33,16 @@ using namespace std;
 
 static const unsigned int DEFAULT_SCREENWIDTH = 2048;
 static const unsigned int DEFAULT_SCREENHEIGHT = 1536;
+static unsigned int WIDTH = DEFAULT_SCREENWIDTH;
+static unsigned int HEIGHT = DEFAULT_SCREENHEIGHT;
 
 static const string appTitle ("Interactive Wood Combustion for Botanical Tree Models");
 static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
-
+static GLuint smokeTexture;
+static unsigned char * smokeImage;
 static Camera camera;
 static TreeGraph tree_graph(FIVE_BRANCH);
 static Tree tree(&tree_graph);
@@ -60,7 +63,30 @@ void printUsage () {
                   << " <drag>+<middle button>: zoom" << std::endl
                   << " q, <esc>: Quit" << std::endl << std::endl; 
 }
+void genCheckerboard (unsigned int width, unsigned int height, unsigned char * image){
+    const int psize = 20;
+    const int fixedAlpha = 150;
+    bool oddh,oddw;
+    unsigned int index = 0;
+    for(unsigned int y=0;y<height;y++) {
+        oddh = (y / psize) % 2 == 1;
+        for (unsigned int x = 0; x < width; x++) {
+            oddw = (x / psize) % 2 == 1;
+            if (oddh == oddw) {
+                image[index++] = 0;
+                image[index++] = 0;
+                image[index++] = 255;
+                image[index++] = fixedAlpha;
 
+            } else {
+                image[index++] = 255;
+                image[index++] = 255;
+                image[index++] = 255;
+                image[index++] = fixedAlpha;
+            }
+        }
+    }
+}
 void init () {
     glewExperimental = GL_TRUE;
     glewInit (); // init glew, which takes in charges the modern OpenGL calls (v>1.2, shaders, etc)
@@ -72,13 +98,14 @@ void init () {
     glEnableClientState (GL_NORMAL_ARRAY);
     glEnableClientState (GL_COLOR_ARRAY);
     glEnable (GL_NORMALIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glLineWidth (2.0); // Set the width of edges in GL_LINE polygon mode
     glClearColor (.5f, .5f, .5f, 0.f); // Background color
     colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     try {
         glProgram = GLProgram::genVFProgram ("Simple GL Program", "shader.vert", "shader.frag"); // Load and compile pair of shaders
-        glProgram->use (); // Activate the shader program
 
     } catch (Exception & e) {
         cerr << e.msg () << endl;
@@ -89,6 +116,15 @@ void init () {
     lightSources.push_back(LightSource(Vec3f(-1,0,0),Vec3f(1,0,0),0.6));
     lightSources.push_back(LightSource(Vec3f(0,0,-1),Vec3f(1,1,1),0.5));
     lightSources.push_back(LightSource(Vec3f(0,0,1),Vec3f(1,1,1),0.5));
+
+    //Smoke texture setup
+
+    glGenTextures(1, &smokeTexture);
+    glBindTexture(GL_TEXTURE_2D, smokeTexture);
+    smokeImage = new unsigned char[4*WIDTH*HEIGHT];
+    genCheckerboard(WIDTH, HEIGHT, smokeImage);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, smokeImage);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 }
 
 // EXERCISE : the following color response shall be replaced with a proper reflectance evaluation/shadow test/etc.
@@ -128,14 +164,51 @@ void updatePerVertexColorResponse () {
 }
 
 void renderScene () {
+    glProgram->use ();
+
     updatePerVertexColorResponse ();
     glVertexPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(tree.positions()[0])));
     glNormalPointer (GL_FLOAT, 3*sizeof (float), (GLvoid*)&(tree.normals()[0]));
     glColorPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(colorResponses[0])));
     glDrawElements (GL_TRIANGLES, 3*tree.triangles().size(), GL_UNSIGNED_INT, (GLvoid*)((&tree.triangles()[0])));
+    
+    glProgram->stop();
+}
+
+void renderSmoke() {
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, WIDTH, HEIGHT, 0);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();  
+    glLoadIdentity();
+    glDisable(GL_CULL_FACE);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, smokeTexture);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glBegin(GL_QUADS);
+      glTexCoord2f(0, 0); glVertex2f(0., 0.);
+      glTexCoord2f(1, 0); glVertex2f(WIDTH, 0);
+      glTexCoord2f(1, 1); glVertex2f(WIDTH, HEIGHT);
+      glTexCoord2f(0, 1); glVertex2f(0, HEIGHT);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+    // Making sure we can render 3d again
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    //glPopMatrix();        ----and this?
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 }
 
 void reshape(int w, int h) {
+    WIDTH = w;
+    HEIGHT = h;
     camera.resize (w, h);
 }
 
@@ -143,6 +216,7 @@ void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply (); 
     renderScene ();
+    renderSmoke ();
     glFlush ();
     glutSwapBuffers (); 
 }

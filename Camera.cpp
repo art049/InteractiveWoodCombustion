@@ -616,12 +616,8 @@ build_rotmatrix(float m[4][4], float q[4])
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-void Camera::getProjectionMatrix (glm::mat4 & proj) {
-    proj = glm::perspective(fovAngle, aspectRatio, nearPlane, farPlane);
-}
-
 void Camera::pixelToRay(uint x, uint y, Vec3f & ray){
-    glm::mat4 projectionMat= glm::mat4(0.);
+    glm::mat4 projectionMat= glm::perspective(fovAngle, aspectRatio, nearPlane, farPlane);
     glm::mat4 rotationMat = glm::mat4(0.);
     this->getProjectionMatrix(projectionMat);
     float rotMat[4][4];

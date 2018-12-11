@@ -77,8 +77,8 @@ public:
       Node * nodes,
       int edges_count,
       Edge * edges): 
-        edges_count(edges_count),
         nodes_count(nodes_count),
+        edges_count(edges_count),
         root_node(root_node),
         nodes(nodes), 
         edges(edges) {};

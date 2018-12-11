@@ -218,7 +218,7 @@ void Camera::handleMouseClickEvent (int button, int state, int x, int y) {
         mouseRotatePressed = false;
         mouseZoomPressed = false;
     } else {
-        if(button == GLUT_LEFT_BUTTON && mouseMovePressed || button == GLUT_RIGHT_BUTTON && mouseRotatePressed){
+        if((button == GLUT_LEFT_BUTTON && mouseMovePressed) || (button == GLUT_RIGHT_BUTTON && mouseRotatePressed)){
             lastZoom = y;
             mouseMovePressed = false;
             mouseRotatePressed = false;
@@ -612,3 +612,23 @@ build_rotmatrix(float m[4][4], float q[4])
 // ---------------------------------------------
 // BEGIN : Code from SGI
 // ---------------------------------------------
+#include <cmath>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+void Camera::getProjectionMatrix (glm::mat4 & proj) {
+    proj = glm::perspective(fovAngle, aspectRatio, nearPlane, farPlane);
+}
+
+void Camera::pixelToRay(uint x, uint y, Vec3f & ray){
+    glm::mat4 projectionMat= glm::mat4(0.);
+    glm::mat4 rotationMat = glm::mat4(0.);
+    this->getProjectionMatrix(projectionMat);
+    float rotMat[4][4];
+    build_rotmatrix(rotMat, curquat);
+    rotationMat = glm::make_mat4((float*)rotMat);
+    glm::vec3 win = glm::vec3(static_cast<float>(x), static_cast<float>(y), 0);
+    glm::vec4 viewport = glm::vec4(0,0,W, H);
+    glm::vec3 point = glm::unProject(win, rotationMat, projectionMat, viewport);
+    ray = Vec3f(point[0], point[1], point[2]);
+}

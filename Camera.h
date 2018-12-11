@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Vec3.h"
+#include <glm/glm.hpp>
 
 class Camera {
 public:
@@ -53,6 +54,9 @@ public:
   // Connecting typical GLUT events
   void handleMouseClickEvent (int button, int state, int x, int y);
   void handleMouseMoveEvent (int x, int y);
+
+  void pixelToRay(uint x, uint y, Vec3f & ray);
+  void getProjectionMatrix (glm::mat4 & proj);
   
 private:
   float fovAngle;

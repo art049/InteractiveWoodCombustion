@@ -47,7 +47,7 @@ static Camera camera;
 static TreeGraph tree_graph(FIVE_BRANCH);
 static Tree tree(&tree_graph);
 GLProgram * glProgram;
-
+static Vec3f frustrumRays[4], initialCampos;
 static std::vector<Vec3f> colorResponses; // Cached per-vertex color response, updated at each frame
 static std::vector<LightSource> lightSources;
 void printUsage () {
@@ -125,6 +125,18 @@ void init () {
     genCheckerboard(WIDTH, HEIGHT, smokeImage);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, smokeImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    camera.getPos(initialCampos);    
+    camera.pixelToRay(0,0, frustrumRays[0]);
+    camera.pixelToRay(WIDTH-1,0, frustrumRays[1]);
+    camera.pixelToRay(WIDTH-1,HEIGHT-1, frustrumRays[2]);
+    camera.pixelToRay(0,HEIGHT-1, frustrumRays[3]);
+    cout << "Camera: " << initialCampos << endl;
+    for(int i = 0; i < 4; i++)
+    {
+        cout <<"Ray:" << frustrumRays[i] << endl;
+    }
+    
 }
 
 // EXERCISE : the following color response shall be replaced with a proper reflectance evaluation/shadow test/etc.
@@ -205,7 +217,27 @@ void renderSmoke() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 }
+void renderInitialCamera(){
+    float d = 10.;
 
+    glLineWidth(20.5); 
+    glColor3f(1.,1.,1.);
+    glBegin(GL_LINES);
+    Vec3f rayEnd, ray1, ray2;
+    for(int i = 0; i < 4; i++)
+    {
+        rayEnd = initialCampos + frustrumRays[i] * d;
+        glVertex3fv((GLfloat *) &initialCampos);
+        glVertex3fv((GLfloat *) &rayEnd);
+
+        ray1 = rayEnd;
+        ray2 = initialCampos + frustrumRays[(i+1)%4] * d;
+        glVertex3fv((GLfloat *) &ray1);
+        glVertex3fv((GLfloat *) &ray2);
+    }
+    glEnd();
+      
+}
 void reshape(int w, int h) {
     WIDTH = w;
     HEIGHT = h;
@@ -215,8 +247,9 @@ void reshape(int w, int h) {
 void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply (); 
+    renderInitialCamera();
     renderScene ();
-    renderSmoke ();
+    //renderSmoke ();
     glFlush ();
     glutSwapBuffers (); 
 }

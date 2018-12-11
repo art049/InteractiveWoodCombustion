@@ -618,13 +618,10 @@ build_rotmatrix(float m[4][4], float q[4])
 
 void Camera::pixelToRay(uint x, uint y, Vec3f & ray){
     glm::mat4 projectionMat= glm::perspective(fovAngle, aspectRatio, nearPlane, farPlane);
-    glm::mat4 rotationMat = glm::mat4(0.);
-    this->getProjectionMatrix(projectionMat);
-    float rotMat[4][4];
-    build_rotmatrix(rotMat, curquat);
-    rotationMat = glm::make_mat4((float*)rotMat);
+    glm::mat4 modelMat = glm::mat4(0.);
+    build_rotmatrix((float (*)[4]) &modelMat, curquat);
     glm::vec3 win = glm::vec3(static_cast<float>(x), static_cast<float>(y), 0);
     glm::vec4 viewport = glm::vec4(0,0,W, H);
-    glm::vec3 point = glm::unProject(win, rotationMat, projectionMat, viewport);
+    glm::vec3 point = glm::unProject(win, modelMat, projectionMat, viewport);
     ray = Vec3f(point[0], point[1], point[2]);
 }

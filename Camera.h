@@ -56,7 +56,6 @@ public:
   void handleMouseMoveEvent (int x, int y);
 
   void pixelToRay(uint x, uint y, Vec3f & ray);
-  void getProjectionMatrix (glm::mat4 & proj);
   
 private:
   float fovAngle;

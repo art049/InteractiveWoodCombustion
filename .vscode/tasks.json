@@ -6,10 +6,26 @@
         {
             "label": "run",
             "type": "shell",
-            "command": "make && ./main",
+            "command": "make -j && ./main",
             "problemMatcher": [
                 "$gcc"
-            ]
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "make -j",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

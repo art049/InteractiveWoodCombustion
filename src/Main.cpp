@@ -105,7 +105,7 @@ void init () {
     colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     try {
-        glProgram = GLProgram::genVFProgram ("Simple GL Program", "shader.vert", "shader.frag"); // Load and compile pair of shaders
+        glProgram = GLProgram::genVFProgram ("Simple GL Program", "src/shaders/shader.vert", "src/shaders/shader.frag"); // Load and compile pair of shaders
 
     } catch (Exception & e) {
         cerr << e.msg () << endl;

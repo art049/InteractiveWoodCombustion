@@ -26,23 +26,30 @@
 #include "Tree.h"
 #include "GLProgram.h"
 #include "Exception.h"
-
 #include "LightSource.h"
+
+#include "physics/constants.h"
+#include "physics/physics.h"
 
 using namespace std;
 
 static const unsigned int DEFAULT_SCREENWIDTH = 2048;
 static const unsigned int DEFAULT_SCREENHEIGHT = 1536;
-static unsigned int WIDTH = DEFAULT_SCREENWIDTH;
-static unsigned int HEIGHT = DEFAULT_SCREENHEIGHT;
+static unsigned int SCREEN_WIDTH = DEFAULT_SCREENWIDTH;
+static unsigned int SCREEN_HEIGHT = DEFAULT_SCREENHEIGHT;
 
 static const string appTitle ("Interactive Wood Combustion for Botanical Tree Models");
 static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
+
 static GLuint smokeTexture;
 static unsigned char * smokeImage;
+
+GPUAnim2dTex bitmap( DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT );
+GPUAnim2dTex* testGPUAnim2dTex = &bitmap; 
+
 static Camera camera;
 static TreeGraph tree_graph(FIVE_BRANCH);
 static Tree tree(&tree_graph);
@@ -121,22 +128,22 @@ void init () {
 
     glGenTextures(1, &smokeTexture);
     glBindTexture(GL_TEXTURE_2D, smokeTexture);
-    smokeImage = new unsigned char[4*WIDTH*HEIGHT];
-    genCheckerboard(WIDTH, HEIGHT, smokeImage);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, smokeImage);
+    smokeImage = new unsigned char[4*SCREEN_WIDTH*SCREEN_HEIGHT];
+    genCheckerboard(SCREEN_WIDTH, SCREEN_HEIGHT, smokeImage);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, smokeImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
     camera.getPos(initialCampos);    
     camera.pixelToRay(0,0, frustrumRays[0]);
-    camera.pixelToRay(WIDTH-1,0, frustrumRays[1]);
-    camera.pixelToRay(WIDTH-1,HEIGHT-1, frustrumRays[2]);
-    camera.pixelToRay(0,HEIGHT-1, frustrumRays[3]);
+    camera.pixelToRay(SCREEN_WIDTH-1,0, frustrumRays[1]);
+    camera.pixelToRay(SCREEN_WIDTH-1,SCREEN_HEIGHT-1, frustrumRays[2]);
+    camera.pixelToRay(0,SCREEN_HEIGHT-1, frustrumRays[3]);
     cout << "Camera: " << initialCampos << endl;
     for(int i = 0; i < 4; i++)
     {
         cout <<"Ray:" << frustrumRays[i] << endl;
     }
-    
+    init_physics();
 }
 
 // EXERCISE : the following color response shall be replaced with a proper reflectance evaluation/shadow test/etc.
@@ -186,12 +193,11 @@ void renderScene () {
     
     glProgram->stop();
 }
-
 void renderSmoke() {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    gluOrtho2D(0, WIDTH, HEIGHT, 0);
+    gluOrtho2D(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();  
     glLoadIdentity();
@@ -204,9 +210,9 @@ void renderSmoke() {
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     glBegin(GL_QUADS);
       glTexCoord2f(0, 0); glVertex2f(0., 0.);
-      glTexCoord2f(1, 0); glVertex2f(WIDTH, 0);
-      glTexCoord2f(1, 1); glVertex2f(WIDTH, HEIGHT);
-      glTexCoord2f(0, 1); glVertex2f(0, HEIGHT);
+      glTexCoord2f(1, 0); glVertex2f(SCREEN_WIDTH, 0);
+      glTexCoord2f(1, 1); glVertex2f(SCREEN_WIDTH, SCREEN_HEIGHT);
+      glTexCoord2f(0, 1); glVertex2f(0, SCREEN_HEIGHT);
     glEnd();
     glDisable(GL_TEXTURE_2D);
     // Making sure we can render 3d again
@@ -220,7 +226,6 @@ void renderSmoke() {
 void renderInitialCamera(){
     float d = 10.;
 
-    glLineWidth(20.5); 
     glColor3f(1.,1.,1.);
     glBegin(GL_LINES);
     Vec3f rayEnd, ray1, ray2;
@@ -239,21 +244,20 @@ void renderInitialCamera(){
       
 }
 void reshape(int w, int h) {
-    WIDTH = w;
-    HEIGHT = h;
+    SCREEN_WIDTH = w;
+    SCREEN_HEIGHT = h;
     camera.resize (w, h);
 }
-
 void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply (); 
+    update_physics();
     renderInitialCamera();
     renderScene ();
     //renderSmoke ();
     glFlush ();
     glutSwapBuffers (); 
 }
-
 void key (unsigned char keyPressed, int x, int y) {
     switch (keyPressed) {
     case 'f':
@@ -306,7 +310,6 @@ void idle () {
     }
     glutPostRedisplay (); 
 }
-
 int main (int argc, char ** argv) {
     if (argc > 2) {
         printUsage ();
@@ -325,6 +328,7 @@ int main (int argc, char ** argv) {
     glutMouseFunc (mouse);
     printUsage ();  
     glutMainLoop ();
+    free_physics();
     return 0;
 }
 

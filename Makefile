@@ -9,7 +9,7 @@ NVCCFLAGS += -m64 -std=c++11  -ccbin $(CPP)
 COMPILER_OPTIONS = -Wall -Wno-deprecated-declarations -pthread
 NVCCFLAGS += -g -G -Xcompiler "$(COMPILER_OPTIONS)" -O2
 
-INCLUDES = -I/usr/local/cuda/samples/common/inc
+#INCLUDES = -I/usr/local/cuda/samples/common/inc
 
 LDFLAGS = -lglut -lGLU -lGL -lGLEW -lm -lpthread
 LDFLAGS += -L/usr/local/cuda/lib64
@@ -31,7 +31,9 @@ $(OBJ_DIR)/%.d : $(SRC_DIR)/%.cpp
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -MM -MF $@ -MP $<
 $(OBJ_DIR)/%.cu.d : $(SRC_DIR)/%.cu
 	@mkdir -p $(OBJ_DIR)/physics $(OBJ_DIR)/cuda_common
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -MM -MF $@ -MP $<
+	$(NVCC) $(NVCCFLAGS) $(TARGET_ARCH) -M $< > $@
+-include $($(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.d,$(CPP_FILES)))
+-include $($(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.cu.d,$(CU_FILES)))
 
 #BUILDING RULES
 .PHONY: default
@@ -47,4 +49,4 @@ $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d
 	$(NVCC) $(NVCCFLAGS) $(INCLUDES) -dc -o $@ $<
 
 clean:
-	rm -f  $(CIBLE) build/*
+	rm -rf  $(CIBLE) build/* 

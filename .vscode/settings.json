@@ -49,6 +49,9 @@
         "memory": "cpp",
         "ratio": "cpp",
         "thread": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "*.cuh": "cpp",
+        "cstdarg": "cpp",
+        "valarray": "cpp"
     }
 }

@@ -8,16 +8,19 @@
 
 #include <array> // std::array
 #include <cmath> // expf
+#include <cuda_runtime.h>
 
 class Grid3d
 {
 	public : 
-		std::array<int,3> Ld;
-		std::array<float,3> ld;
-		std::array<float,3> hd;
+		std::array<int,3> Ld; // Blocks count
+		std::array<float,3> ld; // Grid size
+		std::array<float,3> hd; // Block size
 		
 		float* temperature;
-		
+		float3* velocity;
+		float* smokeDensity;
+
 		Grid3d(std::array<int,3> Ld_in, std::array<float,3> ld_in);
 		
 		std::array<float,3> gridpt_to_space(std::array<int,3> );

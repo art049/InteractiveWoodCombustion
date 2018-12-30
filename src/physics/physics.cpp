@@ -1,11 +1,12 @@
 #include "physics.h"
 
 #define GL_GLEXT_PROTOTYPES
-void init_physics(){
-    dim3 dev_L3 { static_cast<unsigned int>(GRID_WIDTH), 
-                  static_cast<unsigned int>(GRID_HEIGHT), 
-                  static_cast<unsigned int>(GRID_DEPTH) };
-        // physics
+Physics::Physics(){
+    dev_L3.x = static_cast<unsigned int>(GRID_WIDTH);
+    dev_L3.y = static_cast<unsigned int>(GRID_HEIGHT);
+    dev_L3.z = static_cast<unsigned int>(GRID_DEPTH);
+    dev_grid3d = new dev_Grid3d (dev_L3);
+    // physics
     constexpr std::array<int,3> LdS {GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH };
     constexpr std::array<float,3> ldS {1.f, 1.f, 1.f };
     HANDLE_ERROR(
@@ -36,23 +37,31 @@ void init_physics(){
 //	set3DerivativeParameters(hds);
 //	set4DerivativeParameters(hds);
     
-    resetTemperature( dev_grid3d.dev_temperature, dev_L3, bc, M_i);
+    resetTemperature( dev_grid3d->dev_temperature, dev_L3, bc, M_i);
     
     testGPUAnim2dTex->initPixelBuffer();
 
 }
-void free_physics() {
+Physics::~Physics() {
     HANDLE_ERROR(
-        cudaFree( dev_grid3d.dev_temperature ) );
+        cudaFree(dev_grid3d->dev_temperature) 
+    );
+    HANDLE_ERROR(
+        cudaFree(dev_grid3d->dev_velocity) 
+    );
+    HANDLE_ERROR(
+        cudaFree(dev_grid3d->dev_smokeDensity)
+    );
 }
-void update_physics( dim3 Ld_in, int iters_per_render_in, GPUAnim2dTex* texmap  ) {
+void Physics::update() {
+    
     uchar4 *d_out = 0;
-    cudaGraphicsMapResources(1, &texmap->cuda_pixbufferObj_resource, 0);
+    cudaGraphicsMapResources(1, &testGPUAnim2dTex->cuda_pixbufferObj_resource, 0);
     cudaGraphicsResourceGetMappedPointer((void **)&d_out, NULL,
-        texmap->cuda_pixbufferObj_resource);
+        testGPUAnim2dTex->cuda_pixbufferObj_resource);
+    
+    kernelLauncher(d_out, dev_grid3d->dev_temperature, dev_L3, bc, M_i, slice );
 
-    kernelLauncher(d_out, dev_grid3d.dev_temperature, Ld_in, bc, M_i, slice );
-
-    cudaGraphicsUnmapResources(1, &texmap->cuda_pixbufferObj_resource, 0);
+    cudaGraphicsUnmapResources(1, &testGPUAnim2dTex->cuda_pixbufferObj_resource, 0);
     
 }

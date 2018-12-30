@@ -15,8 +15,9 @@ class dev_Grid3d
 	public:
 		dim3 Ld;
 	
-		float *dev_temperature;
-
+		float* dev_temperature;
+		float3* dev_velocity;
+		float* dev_smokeDensity;
 		// constructor
 		__host__ dev_Grid3d( dim3 );
 

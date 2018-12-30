@@ -11,7 +11,10 @@ Grid3d :: Grid3d(std::array<int,3> Ld_in, std::array<float,3> ld_in)
 {
 	hd = { ld[0]/Ld[0], ld[1]/Ld[1], ld[2]/Ld[2]  };
 	
-	temperature = new float[ this->NFLAT() ];
+	int nflat = this->NFLAT();
+	temperature = new float[nflat];
+	velocity = new float3[nflat];
+	smokeDensity = new float[nflat];
 
 }
 
@@ -22,7 +25,6 @@ std::array<float,3> Grid3d :: gridpt_to_space(std::array<int,3> index) {
 
 int Grid3d :: NFLAT() {
 	return Ld[0]*Ld[1]*Ld[2] ;
-
 }	
 
 int Grid3d :: flatten(const int i_x, const int i_y, const int i_z ) {
@@ -32,6 +34,8 @@ int Grid3d :: flatten(const int i_x, const int i_y, const int i_z ) {
 
 Grid3d::~Grid3d() {
 	delete[] temperature;
+	delete[] velocity;
+	delete[] smokeDensity;
 }
 
 float gaussian3d(float A, float c, std::array<float,3> x_0, std::array<float,3> x) {

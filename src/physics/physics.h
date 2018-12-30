@@ -18,6 +18,13 @@
 extern dev_Grid3d dev_grid3d;
 extern GPUAnim2dTex* testGPUAnim2dTex;
 
-void init_physics();
-void free_physics();
-void update_physics( dim3 Ld_in, int iters_per_render_in, GPUAnim2dTex* texmap);
+class Physics
+{
+private:
+    dim3 dev_L3;
+    dev_Grid3d * dev_grid3d;
+public:
+    Physics();
+    ~Physics();
+    void update();
+};

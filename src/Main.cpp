@@ -53,6 +53,7 @@ GPUAnim2dTex* testGPUAnim2dTex = &bitmap;
 static Camera camera;
 static TreeGraph tree_graph(FIVE_BRANCH);
 static Tree tree(&tree_graph);
+static Physics * physics;
 GLProgram * glProgram;
 static Vec3f frustrumRays[4], initialCampos;
 static std::vector<Vec3f> colorResponses; // Cached per-vertex color response, updated at each frame
@@ -143,7 +144,7 @@ void init () {
     {
         cout <<"Ray:" << frustrumRays[i] << endl;
     }
-    init_physics();
+    physics = new Physics();
 }
 
 // EXERCISE : the following color response shall be replaced with a proper reflectance evaluation/shadow test/etc.
@@ -251,7 +252,7 @@ void reshape(int w, int h) {
 void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply (); 
-    update_physics();
+    physics->update();
     renderInitialCamera();
     renderScene ();
     //renderSmoke ();
@@ -302,14 +303,16 @@ void idle () {
         FPS = counter;
         counter = 0;
         static char winTitle [128];
-        unsigned int numOfTriangles = tree.triangles ().size ();
-        sprintf (winTitle, "Number Of Triangles: %d - FPS: %d", numOfTriangles, FPS);
-        string title = appTitle + " - By " + myName  + " - " + winTitle;
+        unsigned int numOfTriangles = tree.triangles().size();
+        unsigned int numOfVoxels = GRID_DEPTH* GRID_HEIGHT* GRID_WIDTH;
+        sprintf (winTitle, "Voxels:%d Triangles:%d FPS:%d",numOfVoxels , numOfTriangles, FPS);
+        string title = appTitle + " - " + winTitle;
         glutSetWindowTitle (title.c_str ());
         lastTime = currentTime;
     }
     glutPostRedisplay (); 
 }
+
 int main (int argc, char ** argv) {
     if (argc > 2) {
         printUsage ();
@@ -328,7 +331,7 @@ int main (int argc, char ** argv) {
     glutMouseFunc (mouse);
     printUsage ();  
     glutMainLoop ();
-    free_physics();
+    delete physics;
     return 0;
 }
 

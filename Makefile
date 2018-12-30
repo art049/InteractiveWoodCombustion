@@ -6,7 +6,7 @@ NVCC = /usr/local/cuda/bin/nvcc
 COMPUTE_CAPABILITY = 61
 NVCCFLAGS  = -gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY)
 NVCCFLAGS += -m64 -std=c++11  -ccbin $(CPP) 
-COMPILER_OPTIONS = -Wall -Wno-deprecated-declarations -pthread
+COMPILER_OPTIONS = -Wall -Wno-deprecated-declarations -pthread -DGL_GLEXT_PROTOTYPES
 NVCCFLAGS += -g -G -Xcompiler "$(COMPILER_OPTIONS)" -O2
 
 #INCLUDES = -I/usr/local/cuda/samples/common/inc

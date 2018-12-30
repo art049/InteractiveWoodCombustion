@@ -9,8 +9,6 @@
 #include "../physics/heat_3d.cuh"  // BC
 #include <stdio.h>
 
-#define GL_GLEXT_PROTOTYPES // needed for identifier glGenBuffer, glBindBuffer, glBufferData, glDeleteBuffers
-
 #include <GL/glut.h>
 
 #include <cuda_runtime.h>
@@ -61,7 +59,7 @@ struct GPUAnim2dTex {
 	}
 	
 	void initPixelBuffer() {
-		glGenBuffers(1, &pixbufferObj );
+		glGenBuffers(1, &pixbufferObj);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixbufferObj);
 		glBufferData(GL_PIXEL_UNPACK_BUFFER, width*height*sizeof(GLubyte)*4, 0, 
 			GL_STREAM_DRAW);

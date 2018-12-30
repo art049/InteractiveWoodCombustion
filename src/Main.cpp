@@ -43,7 +43,7 @@ static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
-
+static bool showGrid = false;
 static GLuint smokeTexture;
 static unsigned char * smokeImage;
 
@@ -139,11 +139,7 @@ void init () {
     camera.pixelToRay(SCREEN_WIDTH-1,0, frustrumRays[1]);
     camera.pixelToRay(SCREEN_WIDTH-1,SCREEN_HEIGHT-1, frustrumRays[2]);
     camera.pixelToRay(0,SCREEN_HEIGHT-1, frustrumRays[3]);
-    cout << "Camera: " << initialCampos << endl;
-    for(int i = 0; i < 4; i++)
-    {
-        cout <<"Ray:" << frustrumRays[i] << endl;
-    }
+    
     physics = new Physics();
 }
 
@@ -186,7 +182,7 @@ void updatePerVertexColorResponse () {
 void renderScene () {
     glProgram->use ();
 
-    updatePerVertexColorResponse ();
+    //updatePerVertexColorResponse ();
     glVertexPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(tree.positions()[0])));
     glNormalPointer (GL_FLOAT, 3*sizeof (float), (GLvoid*)&(tree.normals()[0]));
     glColorPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(colorResponses[0])));
@@ -226,7 +222,6 @@ void renderSmoke() {
 }
 void renderInitialCamera(){
     float d = 10.;
-
     glColor3f(1.,1.,1.);
     glBegin(GL_LINES);
     Vec3f rayEnd, ray1, ray2;
@@ -244,6 +239,42 @@ void renderInitialCamera(){
     glEnd();
       
 }
+
+void renderGrid(){
+    glColor3f(.9,.9,.5);
+    Vec3f gridSize(1,1,1);
+    float hx = gridSize[0]/GRID_WIDTH;
+    float hy = gridSize[1]/GRID_HEIGHT;
+    float hz = gridSize[0]/GRID_DEPTH;
+    int sparsity = 20;
+    glBegin(GL_LINES);
+    for(uint x = 0; x <= GRID_WIDTH; x+=sparsity)
+    {
+        for(uint y = 0; y <= GRID_HEIGHT; y+=sparsity)
+        {
+            glVertex3f(x*hx, y*hy, 0);
+            glVertex3f(x*hx, y*hy, gridSize[2]);
+        }        
+    }
+    for(uint z = 0; z <= GRID_DEPTH; z+=sparsity)
+    {
+        for(uint y = 0; y <= GRID_HEIGHT; y+=sparsity)
+        {
+            glVertex3f(0, y*hy, z*hz);
+            glVertex3f(gridSize[0], y*hy, z*hz);
+        }        
+    }
+    for(uint z = 0; z <= GRID_DEPTH; z+=sparsity)
+    {
+        for(uint x = 0; x <= GRID_WIDTH; x+=sparsity)
+        {
+            glVertex3f(x*hx, 0, z*hz);
+            glVertex3f(x*hx, gridSize[1], z*hz);
+        }        
+    }
+    glEnd();
+}
+
 void reshape(int w, int h) {
     SCREEN_WIDTH = w;
     SCREEN_HEIGHT = h;
@@ -254,6 +285,7 @@ void display () {
     camera.apply (); 
     physics->update();
     renderInitialCamera();
+    if(showGrid) renderGrid();
     renderScene ();
     //renderSmoke ();
     glFlush ();
@@ -279,6 +311,8 @@ void key (unsigned char keyPressed, int x, int y) {
 		glGetIntegerv (GL_POLYGON_MODE, mode);
 		glPolygonMode (GL_FRONT_AND_BACK, mode[1] ==  GL_FILL ? GL_LINE : GL_FILL);
         break;
+    case 'g':
+        showGrid = !showGrid;
         break;
     default:
         printUsage ();

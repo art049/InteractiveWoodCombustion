@@ -6,7 +6,7 @@
 #include <cuda_gl_interop.h>
  
 
-#include <GL/glut.h>
+//#include <GL/glut.h>
 #include "../cuda_common/errors.h"
 #include "../cuda_common/tex_anim2d.cuh"
 
@@ -31,6 +31,7 @@ private:
     dim3 dev_L3;
     dev_Grid3d * dev_grid3d;
     Grid3d * grid3d;
+    bool gridEnabled = false;
     float * smokeQuadsPositions;
     uint * smokeIndexes;
     float * smokeQuadsColors;
@@ -40,6 +41,8 @@ public:
     ~Physics();
     void initSmokeQuads();
     void renderSmokeQuads();
+    void renderGrid();
+    inline void toggleGrid() { gridEnabled = !gridEnabled; };
     void render();
     void update();
 };

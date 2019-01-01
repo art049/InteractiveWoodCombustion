@@ -10,10 +10,11 @@
 #include "../physics/physics.h" 
 #include <stdio.h>
 
+#include <cuda_gl_interop.h>
+#undef APIENTRY // Removes redefinition warning
 #include <GL/glut.h>
 
 #include <cuda_runtime.h>
-#include <cuda_gl_interop.h>
 
 #include "errors.h"
 

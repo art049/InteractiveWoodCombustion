@@ -3,6 +3,8 @@
 
 #include "physics.h"
 #include <iostream>
+#include "../Vec3.h"
+
 void Physics::initSmokeQuads(){
     smokeQuadsPositions = new float[4*3*grid3d->NFLAT()];
     smokeQuadsColors = new float[4*4*grid3d->NFLAT()];
@@ -26,7 +28,7 @@ void Physics::initSmokeQuads(){
                 std::copy(vertexes.begin(), vertexes.end(), smokeQuadsPositions + 12*grid3d->flatten(x,y,z));
 
                 glm::vec3 center = glm::make_vec3(grid3d->ld.begin());
-                glm::vec3 pos(x*hx, y*hy, z*hz); 
+                glm::vec3 pos((x+0.5)*hx, (y+0.5)*hy, (z+0.5)*hz); 
                 center = center * 0.5f;
                 float alpha = expf( (-10.f)* glm::length(center - pos));
                 std::array<float,4> color = {1.f,1.f,1.f,alpha};
@@ -36,7 +38,7 @@ void Physics::initSmokeQuads(){
             }
         }
     }
-    for(uint i=0; i< 4*grid3d->NFLAT(); i++) smokeIndexes[i] = i;
+    for(int i=0; i< 4*grid3d->NFLAT(); i++) smokeIndexes[i] = i;
 }
 
 void Physics::renderSmokeQuads(){
@@ -50,6 +52,42 @@ void Physics::renderSmokeQuads(){
     glEnable(GL_CULL_FACE);
 }
 
+void Physics::renderGrid(){
+    glColor3f(.9,.9,.5);
+    Vec3f gridSize(1,1,1);
+    float hx = gridSize[0]/GRID_WIDTH;
+    float hy = gridSize[1]/GRID_HEIGHT;
+    float hz = gridSize[0]/GRID_DEPTH;
+    int sparsity = 20;
+    glBegin(GL_LINES);
+    for(uint x = 0; x <= GRID_WIDTH; x+=sparsity)
+    {
+        for(uint y = 0; y <= GRID_HEIGHT; y+=sparsity)
+        {
+            glVertex3f(x*hx, y*hy, 0);
+            glVertex3f(x*hx, y*hy, gridSize[2]);
+        }        
+    }
+    for(uint z = 0; z <= GRID_DEPTH; z+=sparsity)
+    {
+        for(uint y = 0; y <= GRID_HEIGHT; y+=sparsity)
+        {
+            glVertex3f(0, y*hy, z*hz);
+            glVertex3f(gridSize[0], y*hy, z*hz);
+        }        
+    }
+    for(uint z = 0; z <= GRID_DEPTH; z+=sparsity)
+    {
+        for(uint x = 0; x <= GRID_WIDTH; x+=sparsity)
+        {
+            glVertex3f(x*hx, 0, z*hz);
+            glVertex3f(x*hx, gridSize[1], z*hz);
+        }        
+    }
+    glEnd();
+}
+
 void Physics::render() {
+    if(gridEnabled) renderGrid();
     renderSmokeQuads();
 }

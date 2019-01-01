@@ -49,7 +49,6 @@ static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
-static bool showGrid = false;
 static GLuint smokeTexture;
 static unsigned char * smokeImage;
 
@@ -246,40 +245,7 @@ void renderInitialCamera(){
       
 }
 
-void renderGrid(){
-    glColor3f(.9,.9,.5);
-    Vec3f gridSize(1,1,1);
-    float hx = gridSize[0]/GRID_WIDTH;
-    float hy = gridSize[1]/GRID_HEIGHT;
-    float hz = gridSize[0]/GRID_DEPTH;
-    int sparsity = 20;
-    glBegin(GL_LINES);
-    for(uint x = 0; x <= GRID_WIDTH; x+=sparsity)
-    {
-        for(uint y = 0; y <= GRID_HEIGHT; y+=sparsity)
-        {
-            glVertex3f(x*hx, y*hy, 0);
-            glVertex3f(x*hx, y*hy, gridSize[2]);
-        }        
-    }
-    for(uint z = 0; z <= GRID_DEPTH; z+=sparsity)
-    {
-        for(uint y = 0; y <= GRID_HEIGHT; y+=sparsity)
-        {
-            glVertex3f(0, y*hy, z*hz);
-            glVertex3f(gridSize[0], y*hy, z*hz);
-        }        
-    }
-    for(uint z = 0; z <= GRID_DEPTH; z+=sparsity)
-    {
-        for(uint x = 0; x <= GRID_WIDTH; x+=sparsity)
-        {
-            glVertex3f(x*hx, 0, z*hz);
-            glVertex3f(x*hx, gridSize[1], z*hz);
-        }        
-    }
-    glEnd();
-}
+
 
 void reshape(int w, int h) {
     SCREEN_WIDTH = w;
@@ -291,7 +257,6 @@ void display () {
     camera.apply (); 
    // physics->update();
     renderInitialCamera();
-    if(showGrid) renderGrid();
     renderScene ();
     //renderSmoke ();
     physics->render();
@@ -319,7 +284,7 @@ void key (unsigned char keyPressed, int x, int y) {
 		glPolygonMode (GL_FRONT_AND_BACK, mode[1] ==  GL_FILL ? GL_LINE : GL_FILL);
         break;
     case 'g':
-        showGrid = !showGrid;
+        physics->toggleGrid();
         break;
     default:
         printUsage ();

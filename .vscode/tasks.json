@@ -18,7 +18,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "make -j",
+            "command": "make -j -B",
             "problemMatcher": [
                 "$gcc"
             ],

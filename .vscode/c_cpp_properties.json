@@ -4,9 +4,10 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/local/cuda/include"
+                "/usr/local/cuda/include",
+                "/usr/local/cuda/samples/common/inc"
             ],
-            "defines": [],
+            "defines": ["GL_GLEXT_PROTOTYPES"],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",

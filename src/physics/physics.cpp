@@ -1,7 +1,7 @@
 #include "physics.h"
+extern GPUAnim2dTex* testGPUAnim2dTex;
 
-#define GL_GLEXT_PROTOTYPES
-Physics::Physics(){
+Physics::Physics(){  
     dev_L3.x = static_cast<unsigned int>(GRID_WIDTH);
     dev_L3.y = static_cast<unsigned int>(GRID_HEIGHT);
     dev_L3.z = static_cast<unsigned int>(GRID_DEPTH);
@@ -25,9 +25,9 @@ Physics::Physics(){
     HANDLE_ERROR(
         cudaMemcpyToSymbol( dev_Ld, Ld_to_const, sizeof(int)*3,0,cudaMemcpyHostToDevice) );
     
-    Grid3d grid3d( LdS, ldS);
+    grid3d = new Grid3d( LdS, ldS);
     
-    const float hds[3] { grid3d.hd[0], grid3d.hd[1], grid3d.hd[2] } ;
+    const float hds[3] { grid3d->hd[0], grid3d->hd[1], grid3d->hd[2] } ;
     
     // sanity check
     //std::cout << " hds : .x : " << hds[0] << " .y : " << hds[1] << " .z : " << hds[2] << std::endl;
@@ -40,6 +40,7 @@ Physics::Physics(){
     resetTemperature( dev_grid3d->dev_temperature, dev_L3, bc, M_i);
     
     testGPUAnim2dTex->initPixelBuffer();
+    initSmokeQuads();
 
 }
 Physics::~Physics() {

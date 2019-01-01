@@ -7,6 +7,7 @@
 #define __TEX_ANIM2D_H__
 
 #include "../physics/heat_3d.cuh"  // BC
+#include "../physics/physics.h" 
 #include <stdio.h>
 
 #include <GL/glut.h>
@@ -18,7 +19,6 @@
 
 #include <cstdlib> // exit
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y) )
 #define W 480
 #define H 480
 #define DT 1.f // source intensity increment
@@ -26,7 +26,7 @@
 
 extern BC bc ; // Boundary conds
 extern unsigned int slice;
-extern uint const GRID_DEPTH;
+//extern uint const GRID_DEPTH;
 
 
 struct GPUAnim2dTex {

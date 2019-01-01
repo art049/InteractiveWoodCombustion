@@ -19,6 +19,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
+
+#include <helper_cuda.h>
+#include <helper_cuda_gl.h>
+
 #include "Vec3.h"
 #include "Camera.h"
 #include "Mesh.h"
@@ -59,7 +65,7 @@ static Vec3f frustrumRays[4], initialCampos;
 static std::vector<Vec3f> colorResponses; // Cached per-vertex color response, updated at each frame
 static std::vector<LightSource> lightSources;
 void printUsage () {
-	std::cerr << std::endl 
+	std::cout
                   << appTitle << std::endl
                   << "Author: " << myName << std::endl << std::endl
                   << "Commands:" << std::endl 
@@ -139,7 +145,7 @@ void init () {
     camera.pixelToRay(SCREEN_WIDTH-1,0, frustrumRays[1]);
     camera.pixelToRay(SCREEN_WIDTH-1,SCREEN_HEIGHT-1, frustrumRays[2]);
     camera.pixelToRay(0,SCREEN_HEIGHT-1, frustrumRays[3]);
-    
+
     physics = new Physics();
 }
 
@@ -283,11 +289,12 @@ void reshape(int w, int h) {
 void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply (); 
-    physics->update();
+   // physics->update();
     renderInitialCamera();
     if(showGrid) renderGrid();
     renderScene ();
     //renderSmoke ();
+    physics->render();
     glFlush ();
     glutSwapBuffers (); 
 }
@@ -356,7 +363,12 @@ int main (int argc, char ** argv) {
     glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     window = glutCreateWindow (appTitle.c_str ());
+    int devID = findCudaGLDevice(argc,  (const char **) argv);
+    cudaDeviceProp deviceProps;
+    HANDLE_ERROR(cudaGetDeviceProperties(&deviceProps, devID));
     init ();
+    printf("\nCUDA device [%s] has %d Multi-Processors\n",
+           deviceProps.name, deviceProps.multiProcessorCount);
     glutIdleFunc (idle);
     glutReshapeFunc (reshape);
     glutDisplayFunc (display);

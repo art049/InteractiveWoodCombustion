@@ -24,14 +24,30 @@ __device__ int idxClip( int idx, int idxMax) {
 __device__ int flatten(int col, int row, int z, int width, int height, int depth) {
     return idxClip(col, width) + idxClip(row,height)*width + idxClip(z,depth)*width*height;
 }
-
-__global__ void resetKernel(float *d_temp, BC bc) {
+__device__ int flatten(int col, int row, int z) {
+    return idxClip(col, GRID_COUNT) + idxClip(row,GRID_COUNT)*GRID_COUNT + idxClip(z,GRID_COUNT)*GRID_COUNT*GRID_COUNT;
+}
+__device__ float3 operator+(const float3 &a, const float3 &b) {
+    return make_float3(a.x+b.x, a.y+b.y, a.z+b.z);
+  }
+__device__ float3 operator-(const float3 &a, const float3 &b) {
+    return make_float3(a.x-b.x, a.y-b.y, a.z-b.z);
+  }
+__device__ float3 operator*(const float3 &a, const float &b) {
+  return make_float3(a.x+b, a.y+b, a.z+b);
+}
+__device__ float3 operator*(const float &b, const float3 &a) {
+    return make_float3(a.x+b, a.y+b, a.z+b);
+  }
+__global__ void resetKernel(float *d_temp, float3* d_vel, float* d_smokedensity, BC bc) {
     const int k_x = blockIdx.x*blockDim.x + threadIdx.x;
     const int k_y = blockIdx.y*blockDim.y + threadIdx.y;
     const int k_z = blockIdx.z*blockDim.z + threadIdx.z;
 
     if ((k_x >= dev_Ld[0]) || (k_y >= dev_Ld[1]) || (k_z >= dev_Ld[2])) return;
-    d_temp[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = bc.t_a;
+    d_temp[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = T_AMBIANT;
+    d_vel[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = {0.f, 0.f, 0.f};
+    d_smokedensity[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = 0.f;
 }
 
 
@@ -104,13 +120,13 @@ __global__ void tempKernel(float *d_temp, BC bc) {
         return; 
     }
 
-/*
-    // If point is below ground, set temp to t_g and return
-    if (k_y == dev_Ld[1] - 1) {
-        d_temp[k] = bc.t_g;
-        return;
-    }
-*/
+    /*
+        // If point is below ground, set temp to t_g and return
+        if (k_y == dev_Ld[1] - 1) {
+            d_temp[k] = bc.t_g;
+            return;
+        }
+    */
     // If point is in front of inlet, set temp to t_g and return
     if (k_x == 0) {
         d_temp[k] = bc.t_g;
@@ -142,9 +158,54 @@ __global__ void tempKernel(float *d_temp, BC bc) {
 }
 
 
+__global__ void velocityKernel(float *d_temp, float3* d_vel, float* d_smokedensity){
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
+    const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
+    // External forces
+    float3 fext = {0,0,0};
+    float3 fconf = {0,0,0};// TODO
+    float3 fbuoy = {0,0, -BUOY_ALPHA*d_smokedensity[k] + BUOY_BETA*(d_temp[k] - T_AMBIANT)};
+    float3 f = fext + fconf + fbuoy;
+    d_vel[k] = d_vel[k] + f * dev_Deltat[0];//NEED AVERAGE TO CENTER Appendix A
+    float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
+    
+    // Advection
+    // Iteratively compute alpha_m
+    float3 alpha_m = d_vel[k] * dev_Deltat[0];
+    for(uint i = 0; i < SEMILAGRANGIAN_ITERS; i++){
+        float3 estimated = pos - alpha_m;
+        int3 b = {static_cast<int>(estimated.x/BLOCK_SIZE),
+                  static_cast<int>(estimated.y/BLOCK_SIZE),
+                  static_cast<int>(estimated.z/BLOCK_SIZE)};
+        float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
+        alpha_m = localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
+                  (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
+                  localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
+                  (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
+                  localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
+                  (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
+        alpha_m = alpha_m * dev_Deltat[0];
+    }
+    // Backtracing 
+    float3 estimated = pos - 2 * alpha_m;
+    int3 b = {static_cast<int>(estimated.x/BLOCK_SIZE),
+              static_cast<int>(estimated.y/BLOCK_SIZE),
+              static_cast<int>(estimated.z/BLOCK_SIZE)};
+    float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
+    float3 dv= localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
+               localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
+               localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
+    dv = dv * 2 * dev_Deltat[0];
+    //NEED OLD GRID FOR THIS
+    d_vel[k] = d_vel[k] + dv;
 
-
-
+}
 __global__ void float_to_char( uchar4* dev_out, const float* outSrc, unsigned int slice = 5000) {
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -168,11 +229,12 @@ __global__ void float_to_char( uchar4* dev_out, const float* outSrc, unsigned in
 }
 
 
-void kernelLauncher(uchar4 *d_out, float *d_temp, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
+void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
     const dim3 gridSize(blocksNeeded(Ld.x, M_in.x), blocksNeeded(Ld.y, M_in.y), 
                         blocksNeeded(Ld.z,M_in.z));
     const size_t smSz = (M_in.x + 2 * RAD)*(M_in.y + 2 * RAD)*(M_in.z + 2 * RAD)*sizeof(float);
 
+    velocityKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
     tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
     
     const dim3 out_gridSize( gridSize.x, gridSize.y );
@@ -181,9 +243,9 @@ void kernelLauncher(uchar4 *d_out, float *d_temp, dim3 Ld, BC bc, dim3 M_in, uns
     float_to_char<<<out_gridSize,out_M>>>(d_out, d_temp, slice) ; 
 }
 
-void resetTemperature(float *d_temp, dim3 Ld, BC bc, dim3 M_in) {
+void resetVariables(float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in) {
     const dim3 gridSize( blocksNeeded(Ld.x, M_in.x), blocksNeeded( Ld.y, M_in.y), 
                             blocksNeeded(Ld.z, M_in.z));
 
-    resetKernel<<<gridSize, M_in>>>(d_temp,bc);
+    resetKernel<<<gridSize, M_in>>>(d_temp, d_vel, d_smokedensity, bc);
 }

@@ -17,6 +17,7 @@ class dev_Grid3d
 	
 		float* dev_temperature;
 		float3* dev_velocity;
+		float3* dev_interVelocity;
 		float* dev_smokeDensity;
 		// constructor
 		__host__ dev_Grid3d( dim3 );

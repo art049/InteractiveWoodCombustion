@@ -17,6 +17,9 @@ __host__ dev_Grid3d::dev_Grid3d( dim3 Ld_in) : Ld(Ld_in)
         cudaMalloc((void**)&this->dev_velocity, nflat*sizeof(float3)) 
     );
     HANDLE_ERROR(
+        cudaMalloc((void**)&this->dev_interVelocity, nflat*sizeof(float3)) 
+    );
+    HANDLE_ERROR(
         cudaMalloc((void**)&this->dev_smokeDensity, nflat*sizeof(float)) 
     );
 }

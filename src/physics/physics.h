@@ -19,11 +19,18 @@
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
 static const float Deltat[1] {0.0001f}; 
-static const uint GRID_WIDTH =  100;
-static const uint GRID_HEIGHT=  100;
-static const uint GRID_DEPTH =  100;
+static const uint GRID_COUNT =  100;
+static const float GRID_SIZE = 1.;
+static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
 static const dim3 M_i { 16 , 16 , 4  };
-
+static const float T_AMBIANT = 20.0f;
+static const float BUOY_ALPHA = 1.0f;
+static const float BUOY_BETA = 1.0f;
+static const uint SEMILAGRANGIAN_ITERS = 3;
+static const float heat_params[2] { 
+                                 0.00500f,
+                                 1.f } ; // \kappa 
+                                        // heat capacity for constant volume, per volume 
 
 class Physics
 {

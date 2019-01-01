@@ -49,6 +49,7 @@ static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;
 static bool fullScreen = false;
+static bool updatePhysics = true;
 static GLuint smokeTexture;
 static unsigned char * smokeImage;
 
@@ -242,20 +243,18 @@ void renderInitialCamera(){
         glVertex3fv((GLfloat *) &ray2);
     }
     glEnd();
-      
 }
-
-
 
 void reshape(int w, int h) {
     SCREEN_WIDTH = w;
     SCREEN_HEIGHT = h;
     camera.resize (w, h);
 }
+
 void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply (); 
-   // physics->update();
+    if(updatePhysics) physics->update();
     renderInitialCamera();
     renderScene ();
     //renderSmoke ();
@@ -286,6 +285,9 @@ void key (unsigned char keyPressed, int x, int y) {
     case 'g':
         physics->toggleGrid();
         break;
+    case 'p':
+        updatePhysics = !updatePhysics;
+        break;
     default:
         printUsage ();
         break;
@@ -310,7 +312,7 @@ void idle () {
         counter = 0;
         static char winTitle [128];
         unsigned int numOfTriangles = tree.triangles().size();
-        unsigned int numOfVoxels = GRID_DEPTH* GRID_HEIGHT* GRID_WIDTH;
+        unsigned int numOfVoxels = pow(GRID_COUNT,3);
         sprintf (winTitle, "Voxels:%d Triangles:%d FPS:%d",numOfVoxels , numOfTriangles, FPS);
         string title = appTitle + " - " + winTitle;
         glutSetWindowTitle (title.c_str ());

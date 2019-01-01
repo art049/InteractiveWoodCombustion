@@ -6,6 +6,7 @@
 #ifndef __HEAT_3D_H__
 #define __HEAT_3D_H__
 
+
 #include "../cuda_common/finitediff.cuh"
 #include "dev_R3grid.cuh"
 
@@ -23,11 +24,12 @@ typedef struct {
 	float t_s, t_a, t_g; // temperatures in pipe, air, ground
 } BC;
 
+#include "physics.h"
 
-void kernelLauncher(uchar4 *d_out, float *d_temp, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) ; 
+void kernelLauncher(uchar4 *d_out,float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) ; 
 
 
-void resetTemperature(float *d_temp, dim3 Ld, BC bc, dim3 M_in);
+void resetVariables(float* d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in);
 
 #endif // __HEAT_2D_H__
  

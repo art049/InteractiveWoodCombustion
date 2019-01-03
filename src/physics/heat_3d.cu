@@ -293,7 +293,7 @@ void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smoked
 
     velocityKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
     smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
-    generateSmokeColorBuffer<<<gridSize, M_in, smSz>>>(d_out, d_smokedensity);
+    //generateSmokeColorBuffer<<<gridSize, M_in, smSz>>>(d_out, d_smokedensity);
     //tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
     
     const dim3 out_gridSize( gridSize.x, gridSize.y );

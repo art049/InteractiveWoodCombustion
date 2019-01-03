@@ -42,6 +42,9 @@ private:
     float * smokeQuadsPositions;
     uint * smokeIndexes;
     float * smokeQuadsColors;
+    
+    GLuint smokeColorBufferObj = 0;
+    cudaGraphicsResource *cuda_smokeColorBufferObj_resource;
 
 public:
     Physics();

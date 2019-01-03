@@ -206,6 +206,49 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float* d_smokedensi
     d_vel[k] = d_vel[k] + dv;
 
 }
+
+__global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smoke){
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
+    const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
+    
+    // Advection
+    // Iteratively compute alpha_m
+    float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
+    float3 alpha_m = d_vel[k] * dev_Deltat[0];
+    for(uint i = 0; i < SEMILAGRANGIAN_ITERS; i++){
+        float3 estimated = pos - alpha_m;
+        int3 b = {static_cast<int>(estimated.x/BLOCK_SIZE),
+                  static_cast<int>(estimated.y/BLOCK_SIZE),
+                  static_cast<int>(estimated.z/BLOCK_SIZE)};
+        float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
+        alpha_m = localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
+                  (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
+                  localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
+                  (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
+                  localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
+                  (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
+        alpha_m = alpha_m * dev_Deltat[0];
+    }
+    // Backtracing 
+    float3 estimated = pos - 2 * alpha_m;
+    int3 b = {static_cast<int>(estimated.x/BLOCK_SIZE),
+              static_cast<int>(estimated.y/BLOCK_SIZE),
+              static_cast<int>(estimated.z/BLOCK_SIZE)};
+    float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
+    float ds= localCoord.x     * d_smoke[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.x) * d_smoke[flatten(b.x+1, b.y, b.z)]+
+               localCoord.y     * d_smoke[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.y) * d_smoke[flatten(b.x, b.y+1, b.z)]+
+               localCoord.z     * d_smoke[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.z) * d_smoke[flatten(b.x, b.y, b.z+1)];
+    ds = ds * 2 * dev_Deltat[0];
+    //NEED OLD GRID FOR THIS
+    d_smoke[k] = d_smoke[k] + ds;
+}
+
 __global__ void float_to_char( uchar4* dev_out, const float* outSrc, unsigned int slice = 5000) {
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -227,6 +270,20 @@ __global__ void float_to_char( uchar4* dev_out, const float* outSrc, unsigned in
     dev_out[k].z = 255 - intensity ; // lower temp -> more blue
     
 }
+__global__ void generateSmokeColorBuffer( uchar4* dev_out, const float* d_smoke) {
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
+    const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
+    const unsigned char intensity = clip((int) (d_smoke[k]*255));
+    for(uint i = 0; i < 4; i++){
+        dev_out[4*k+i].x = intensity;
+        dev_out[4*k+i].z = intensity;
+        dev_out[4*k+i].y = intensity;
+        dev_out[4*k+i].w = 0;
+    }
+}
 
 
 void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
@@ -235,11 +292,13 @@ void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smoked
     const size_t smSz = (M_in.x + 2 * RAD)*(M_in.y + 2 * RAD)*(M_in.z + 2 * RAD)*sizeof(float);
 
     velocityKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
-    tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
+    smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
+    generateSmokeColorBuffer<<<gridSize, M_in, smSz>>>(d_out, d_smokedensity);
+    //tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
     
     const dim3 out_gridSize( gridSize.x, gridSize.y );
     const dim3 out_M( M_in.x, M_in.y );
-
+//
     float_to_char<<<out_gridSize,out_M>>>(d_out, d_temp, slice) ; 
 }
 

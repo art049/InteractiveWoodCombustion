@@ -39,8 +39,8 @@
 
 using namespace std;
 
-static const unsigned int DEFAULT_SCREENWIDTH = 2048;
-static const unsigned int DEFAULT_SCREENHEIGHT = 1536;
+static const unsigned int DEFAULT_SCREENWIDTH = 1024;
+static const unsigned int DEFAULT_SCREENHEIGHT = 680;
 static unsigned int SCREEN_WIDTH = DEFAULT_SCREENWIDTH;
 static unsigned int SCREEN_HEIGHT = DEFAULT_SCREENHEIGHT;
 

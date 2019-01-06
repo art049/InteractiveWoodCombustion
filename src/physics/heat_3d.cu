@@ -213,7 +213,10 @@ __global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smok
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
-    
+    if(k_z < GRID_COUNT/2){
+        d_smoke[k] = 100.f;
+        return;
+    }
     // Advection
     // Iteratively compute alpha_m
     float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
@@ -248,27 +251,63 @@ __global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smok
     //NEED OLD GRID FOR THIS
     d_smoke[k] = d_smoke[k] + ds;
 }
+#include "vec3.cuh"
+__device__ swap
+__device__ void rayGridIntersect(const vec3 ray_orig, const vec3 ray_dir, uint3 * voxel, float * t){
+    const float m = 0., M = GRID_SIZE;
+    float temp;
+    float tmin = (m - ray_orig.x()) / ray_dir.x();
+    float tmax = (M - ray_orig.x()) / ray_dir.x();
+    if (tmin > tmax){
+        
+    }
 
-__global__ void float_to_char( uchar4* dev_out, const float* outSrc, unsigned int slice = 5000) {
+}
+
+__global__ void smokeLightKernel(vec3 ray_orig){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
-    
-    // choose at which z coordinate to make the slice in x-y plane
-    const int zcoordslice = slice == 5000 ? 140 : slice; 
-    
-    const int k   = k_x + k_y * blockDim.x*gridDim.x ; 
-    const int fulloffset = k + zcoordslice*blockDim.x*gridDim.x*blockDim.y*gridDim.y; 
-
-    dev_out[k].x = 0;
-    dev_out[k].z = 0;
-    dev_out[k].y = 0;
-    dev_out[k].w = 255;
-
-
-    const unsigned char intensity = clip((int) outSrc[fulloffset] ) ;
-    dev_out[k].x = intensity ;       // higher temp -> more red
-    dev_out[k].z = 255 - intensity ; // lower temp -> more blue
-    
+    float theta = k_x * SMOKE_RAY_DELTA_ANGLE;
+    float phi = k_y * SMOKE_RAY_DELTA_ANGLE/2;
+    vec3 ray_dir(sin(phi)*cos(theta), sin(phi)*sin(theta), cos(phi));
+    float ray_transparency = 1.f;
+    int3 step;
+    step.x = ray_dir.x() > 0 ? 1 : -1;
+    step.y = ray_dir.y() > 0 ? 1 : -1;
+    step.z = ray_dir.z() > 0 ? 1 : -1;
+    uint3 voxel; //Current voxel coordinate
+    float t; // Initial hit param value
+    rayGridIntersect(ray_orig, ray_dir, &voxel, &t)
+    float3 tMax; 
+    // DIV by zero handling
+    float3 tDelta = {BLOCK_SIZE / ray_dir.x(), BLOCK_SIZE / ray_dir.y(), BLOCK_SIZE / ray_dir.z()}
+    while(true){
+        tMax.x = (BLOCK_SIZE - fmod((ray_orig + t*ray_dir).x(), BLOCK_SIZE))/ray_dir.x();
+        tMax.y = (BLOCK_SIZE - fmod((ray_orig + t*ray_dir).y(), BLOCK_SIZE))/ray_dir.y();
+        tMax.z = (BLOCK_SIZE - fmod((ray_orig + t*ray_dir).z(), BLOCK_SIZE))/ray_dir.z();
+        if(tMax.x < tMax.y) {
+            if(tMax.x < tMax.z) {
+                voxel.x += step.x;
+                if(voxel.x == GRID_COUNT)return; /* outside grid */
+                tMax.x += tDelta.x;
+            } else {
+                voxel.z += step.z;
+                if(voxel.z == GRID_COUNT)return;
+                tMax.z += tDelta.z;
+            }
+        } else {
+            if(tMax.y < tMax.z) {
+                voxel.y += step.y;
+                if(voxel.y == GRID_COUNT)return;
+                tMax.y += tDelta.y;
+            } else {
+                voxel.z += stepZ;
+                if(Z == justOutZ)return;
+                tMax.z += tDelta.z;
+            }
+        }
+        voxel ....
+    }
 }
 __global__ void generateSmokeColorBuffer( uchar4* dev_out, const float* d_smoke) {
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -276,12 +315,12 @@ __global__ void generateSmokeColorBuffer( uchar4* dev_out, const float* d_smoke)
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
-    const unsigned char intensity = clip((int) (d_smoke[k]*255));
+    const unsigned char intensity = clip((int) (d_smoke[k]*255.f));
     for(uint i = 0; i < 4; i++){
         dev_out[4*k+i].x = intensity;
         dev_out[4*k+i].z = intensity;
         dev_out[4*k+i].y = intensity;
-        dev_out[4*k+i].w = 0;
+        dev_out[4*k+i].w = intensity;
     }
 }
 
@@ -293,13 +332,11 @@ void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smoked
 
     velocityKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
     smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
-    //generateSmokeColorBuffer<<<gridSize, M_in, smSz>>>(d_out, d_smokedensity);
+    generateSmokeColorBuffer<<<gridSize, M_in, smSz>>>(d_out, d_smokedensity);
     //tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
     
     const dim3 out_gridSize( gridSize.x, gridSize.y );
     const dim3 out_M( M_in.x, M_in.y );
-//
-    float_to_char<<<out_gridSize,out_M>>>(d_out, d_temp, slice) ; 
 }
 
 void resetVariables(float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in) {

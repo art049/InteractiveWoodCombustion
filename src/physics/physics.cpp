@@ -38,9 +38,9 @@ Physics::Physics(){
 
     glGenBuffers(1, &smokeColorBufferObj);
     glBindBuffer(GL_ARRAY_BUFFER, smokeColorBufferObj);
-    glBufferData(GL_ARRAY_BUFFER, pow(GRID_COUNT,3)*sizeof(GLubyte)*4*4, 0, GL_STREAM_DRAW);
-    cudaGraphicsGLRegisterBuffer( &cuda_smokeColorBufferObj_resource, smokeColorBufferObj, cudaGraphicsMapFlagsWriteDiscard);
-
+    
+    glBufferData(GL_ARRAY_BUFFER, pow(GRID_COUNT,3)*4*4*sizeof(GLubyte), 0, GL_STREAM_DRAW);
+    cudaGLRegisterBufferObject(smokeColorBufferObj);
     initSmokeQuads();
 
 }
@@ -55,22 +55,18 @@ Physics::~Physics() {
         cudaFree(dev_grid3d->dev_smokeDensity)
     );
     if (smokeColorBufferObj) {
-        cudaGraphicsUnregisterResource(cuda_smokeColorBufferObj_resource);
+        cudaGLUnregisterBufferObject(smokeColorBufferObj);
         glDeleteBuffers(1, &smokeColorBufferObj);
     }
 }
 void Physics::update() {
     
     uchar4 *d_out = 0;
-    cudaGraphicsMapResources(1, &cuda_smokeColorBufferObj_resource, 0);
-    cudaGraphicsResourceGetMappedPointer((void **)&d_out, NULL, cuda_smokeColorBufferObj_resource);
-    
+    cudaGLMapBufferObject((void **)&d_out, smokeColorBufferObj);
     kernelLauncher(d_out, 
                    dev_grid3d->dev_temperature,
                    dev_grid3d->dev_velocity,
                    dev_grid3d->dev_smokeDensity,
                    dev_L3, bc, M_i, slice );
-
-    cudaGraphicsUnmapResources(1, &cuda_smokeColorBufferObj_resource, 0);
-    
+    cudaGLUnmapBufferObject(smokeColorBufferObj);    
 }

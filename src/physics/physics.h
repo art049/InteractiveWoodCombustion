@@ -1,9 +1,9 @@
 #ifndef __PHYSICS_H__
 #define __PHYSICS_H__
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
+#include <math.h>
  
 
 //#include <GL/glut.h>
@@ -19,7 +19,7 @@
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
 static const float Deltat[1] {0.0001f}; 
-static const uint GRID_COUNT =  100;
+static const uint GRID_COUNT =  50;
 static const float GRID_SIZE = 1.;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
 static const dim3 M_i { 16 , 16 , 4  };
@@ -27,6 +27,11 @@ static const float T_AMBIANT = 20.0f;
 static const float BUOY_ALPHA = 1.0f;
 static const float BUOY_BETA = 1.0f;
 static const uint SEMILAGRANGIAN_ITERS = 3;
+
+static const float SMOKE_EXTINCTION_COEFF = 1.;
+static const int SMOKE_CIRCULAR_RAY_COUNT = 300;
+static const float SMOKE_RAY_DELTA_ANGLE = 2*PI/SMOKE_CIRCULAR_RAY_COUNT;
+
 static const float heat_params[2] { 
                                  0.00500f,
                                  1.f } ; // \kappa 
@@ -42,6 +47,7 @@ private:
     float * smokeQuadsPositions;
     uint * smokeIndexes;
     float * smokeQuadsColors;
+    GLuint smokeQuadVBO, smokeQuadIndexVBO;
     
     GLuint smokeColorBufferObj = 0;
     cudaGraphicsResource *cuda_smokeColorBufferObj_resource;

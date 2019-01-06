@@ -6,9 +6,10 @@
 #include "../Vec3.h"
 
 void Physics::initSmokeQuads(){
-    smokeQuadsPositions = new float[4*3*grid3d->NFLAT()];
-    smokeQuadsColors = new float[4*4*grid3d->NFLAT()];
-    smokeIndexes = new uint[4*grid3d->NFLAT()];
+    int nflat = grid3d->NFLAT();
+    smokeQuadsPositions = new float[4*3*nflat];
+    smokeQuadsColors = new float[4*4*nflat];
+    smokeIndexes = new uint[4*nflat];
     int sparsity = 1;
     for(uint x = 0; x < GRID_COUNT; x+=sparsity)
     {
@@ -36,15 +37,32 @@ void Physics::initSmokeQuads(){
         }
     }
     for(int i=0; i< 4*grid3d->NFLAT(); i++) smokeIndexes[i] = i;
+
+    glGenBuffers(1, &smokeQuadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, smokeQuadVBO);
+    glBufferData(GL_ARRAY_BUFFER, nflat*4*3*sizeof(float), smokeQuadsPositions, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glGenBuffers(1, &smokeQuadIndexVBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, smokeQuadIndexVBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4*nflat*sizeof(uint), smokeIndexes, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void Physics::renderSmokeQuads(){
     glDisable(GL_CULL_FACE);
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
-    glVertexPointer (3, GL_FLOAT, 3*sizeof(float), (GLvoid*)(smokeQuadsPositions));
-    glColorPointer (4, GL_FLOAT, 0, (GLvoid*)(smokeQuadsColors));
-    glDrawElements (GL_QUADS,4*grid3d->NFLAT(), GL_UNSIGNED_INT, smokeIndexes);
+    glBindBuffer(GL_ARRAY_BUFFER, smokeQuadVBO);
+    glVertexPointer (3, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, smokeColorBufferObj);
+    glColorPointer (4, GL_UNSIGNED_BYTE, 0, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, smokeQuadIndexVBO);
+    glDrawElements (GL_QUADS,4*grid3d->NFLAT(), GL_UNSIGNED_INT, (void*) 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 }

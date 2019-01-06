@@ -18,19 +18,19 @@
 
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
-static const float Deltat[1] {0.0001f}; 
-static const uint GRID_COUNT =  50;
+static const float Deltat[1] {0.05f}; 
+static const uint GRID_COUNT =  30;
 static const float GRID_SIZE = 1.;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
-static const dim3 M_i { 16 , 16 , 4  };
+static const dim3 M_i { 8 , 8 , 8  };
 static const float T_AMBIANT = 20.0f;
-static const float BUOY_ALPHA = 1.0f;
-static const float BUOY_BETA = 1.0f;
-static const uint SEMILAGRANGIAN_ITERS = 3;
+static const float BUOY_ALPHA = 1e-0;
+static const float BUOY_BETA = 1e-0;
+static const uint SEMILAGRANGIAN_ITERS = 5;
 
 static const float SMOKE_EXTINCTION_COEFF = 1.;
 static const int SMOKE_CIRCULAR_RAY_COUNT = 300;
-static const float SMOKE_RAY_DELTA_ANGLE = 2*PI/SMOKE_CIRCULAR_RAY_COUNT;
+static const float SMOKE_RAY_DELTA_ANGLE = 2*M_PI/SMOKE_CIRCULAR_RAY_COUNT;
 
 static const float heat_params[2] { 
                                  0.00500f,
@@ -61,6 +61,7 @@ public:
     inline void toggleGrid() { gridEnabled = !gridEnabled; };
     void render();
     void update();
+    void reset();
 };
 
 #endif

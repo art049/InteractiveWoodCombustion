@@ -285,6 +285,9 @@ void key (unsigned char keyPressed, int x, int y) {
     case 'g':
         physics->toggleGrid();
         break;
+    case 'r':
+        physics-> reset();
+        break;
     case 'p':
         updatePhysics = !updatePhysics;
         break;

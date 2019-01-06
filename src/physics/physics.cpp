@@ -70,3 +70,10 @@ void Physics::update() {
                    dev_L3, bc, M_i, slice );
     cudaGLUnmapBufferObject(smokeColorBufferObj);    
 }
+
+void Physics::reset(){
+    resetVariables(dev_grid3d->dev_temperature,
+                   dev_grid3d->dev_velocity,
+                   dev_grid3d->dev_smokeDensity,
+                   dev_L3, bc, M_i);
+}

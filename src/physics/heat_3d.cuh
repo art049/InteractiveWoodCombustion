@@ -26,7 +26,7 @@ typedef struct {
 
 #include "physics.h"
 
-void kernelLauncher(uchar4 *d_out,float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) ; 
+void kernelLauncher(uchar4 *d_out,float *d_temp, float3* d_vel, float* d_smokedensity, float* smokeRadiance, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) ; 
 
 
 void resetVariables(float* d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in);

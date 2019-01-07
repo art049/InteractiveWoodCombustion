@@ -18,15 +18,15 @@
 
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
-static const float Deltat[1] {0.05f}; 
-static const uint GRID_COUNT =  30;
+static const float Deltat[1] {0.005f}; 
+static const uint GRID_COUNT =  5;
 static const float GRID_SIZE = 1.;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
 static const dim3 M_i { 8 , 8 , 8  };
 static const float T_AMBIANT = 20.0f;
 static const float BUOY_ALPHA = 1e-0;
 static const float BUOY_BETA = 1e-0;
-static const uint SEMILAGRANGIAN_ITERS = 5;
+static const uint SEMILAGRANGIAN_ITERS = 10;
 
 static const float SMOKE_EXTINCTION_COEFF = 1.;
 static const int SMOKE_CIRCULAR_RAY_COUNT = 300;
@@ -43,6 +43,7 @@ private:
     dim3 dev_L3;
     dev_Grid3d * dev_grid3d;
     Grid3d * grid3d;
+    int activeBuffer = 0;
     bool gridEnabled = false;
     float * smokeQuadsPositions;
     uint * smokeIndexes;

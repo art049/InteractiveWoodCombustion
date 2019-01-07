@@ -42,7 +42,7 @@ __device__ float3 operator*(const float &b, const float3 &a) {
 __device__ int d_abs(int a) {
     return a > 0 ? a : -a;
 }
-__global__ void resetKernel(float *d_temp, float3* d_vel, float* d_smokedensity, BC bc) {
+__global__ void resetKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float* d_smokedensity, BC bc) {
     const int k_x = blockIdx.x*blockDim.x + threadIdx.x;
     const int k_y = blockIdx.y*blockDim.y + threadIdx.y;
     const int k_z = blockIdx.z*blockDim.z + threadIdx.z;
@@ -50,6 +50,7 @@ __global__ void resetKernel(float *d_temp, float3* d_vel, float* d_smokedensity,
     if ((k_x >= dev_Ld[0]) || (k_y >= dev_Ld[1]) || (k_z >= dev_Ld[2])) return;
     d_temp[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = T_AMBIANT;
     d_vel[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = {0.f, 0.f, 0.f};
+    d_oldvel[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = {0.f, 0.f, 0.f};
     d_smokedensity[k_z*dev_Ld[0]*dev_Ld[1] + k_y*dev_Ld[0] + k_x] = 0.f;
     if(d_abs(k_z - GRID_COUNT/2) < GRID_COUNT/5 && 
        d_abs(k_y - GRID_COUNT/2) < GRID_COUNT/5 &&
@@ -166,22 +167,74 @@ __global__ void tempKernel(float *d_temp, BC bc) {
 }
 
 
-__global__ void velocityKernel(float *d_temp, float3* d_vel, float* d_smokedensity){
+__global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float* d_smokedensity){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
+    if(k_x == 0 || k_x == GRID_COUNT - 1 || k_y == 0 || k_y == GRID_COUNT - 1 || k_z == 0 || k_z == GRID_COUNT - 1)
+        return;
     // External forces
     float3 fext = {0,0,0};
     float3 fconf = {0,0,0};// TODO
     float3 fbuoy = {0,0, -BUOY_ALPHA*d_smokedensity[k] + BUOY_BETA*(d_temp[k] - T_AMBIANT)};
     float3 f = fext + fconf + fbuoy;
     d_vel[k] = d_vel[k] + f * dev_Deltat[0];//NEED AVERAGE TO CENTER Appendix A
-    float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
-    
+    //float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
+    //
+    //// Advection
+    //// Iteratively compute alpha_m
+    //float3 alpha_m = d_vel[k] * dev_Deltat[0];
+    //for(uint i = 0; i < SEMILAGRANGIAN_ITERS; i++){
+    //    float3 estimated = pos - alpha_m;
+    //    if(estimated.x < 0) estimated.x = 0;
+    //    if(estimated.y < 0) estimated.y = 0;
+    //    if(estimated.z < 0) estimated.z = 0;
+    //    uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
+    //               static_cast<uint>(estimated.y/BLOCK_SIZE),
+    //               static_cast<uint>(estimated.z/BLOCK_SIZE)};
+    //    float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE); 
+    //    alpha_m = localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
+    //              (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
+    //              localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
+    //              (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
+    //              localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
+    //              (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
+    //    alpha_m = alpha_m * (1./3.) * dev_Deltat[0];
+    //}
+    //
+    //// Backtracing 
+    //float3 estimated = pos - 2 * alpha_m;
+    //if(estimated.x < 0) estimated.x = 0;
+    //if(estimated.y < 0) estimated.y = 0;
+    //if(estimated.z < 0) estimated.z = 0;
+    //uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
+    //           static_cast<uint>(estimated.y/BLOCK_SIZE),
+    //           static_cast<uint>(estimated.z/BLOCK_SIZE)};
+    //float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE);
+    //float3 dv= localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
+    //           (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
+    //           localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
+    //           (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
+    //           localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
+    //           (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
+    //dv = dv * (1./3.) * 2 * dev_Deltat[0];
+    ////NEED OLD GRID FOR THIS
+    //d_vel[k] = d_vel[k] + dv;        
+}
+#include <stdio.h>
+__global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smoke){
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
+    const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
+    if(d_vel[k].x != 0 && d_vel[k].y != 0 && d_vel[k].z != 0)
+        printf("vx:%f vy:%f vz:%f\n", d_vel[k].x, d_vel[k].y, d_vel[k].z);
     // Advection
     // Iteratively compute alpha_m
+    float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
     float3 alpha_m = d_vel[k] * dev_Deltat[0];
     for(uint i = 0; i < SEMILAGRANGIAN_ITERS; i++){
         float3 estimated = pos - alpha_m;
@@ -191,7 +244,7 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float* d_smokedensi
         uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
                    static_cast<uint>(estimated.y/BLOCK_SIZE),
                    static_cast<uint>(estimated.z/BLOCK_SIZE)};
-        float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE); 
+        float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
         alpha_m = localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
                   (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
                   localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
@@ -199,77 +252,29 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float* d_smokedensi
                   localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
                   (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
         alpha_m = alpha_m * (1./3.) * dev_Deltat[0];
+        if(k_x == 1 && k_y == 1 && k_z ==1)
+            printf("k:%d %d %d a_m: %f %f %f \n", k_x, k_y, k_z, localCoord.x, localCoord.y, localCoord.z);
     }
-    
     // Backtracing 
     float3 estimated = pos - 2 * alpha_m;
     if(estimated.x < 0) estimated.x = 0;
     if(estimated.y < 0) estimated.y = 0;
     if(estimated.z < 0) estimated.z = 0;
     uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
-        static_cast<uint>(estimated.y/BLOCK_SIZE),
-        static_cast<uint>(estimated.z/BLOCK_SIZE)};
-        float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE);
-        float3 dv= localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
-        (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
-        localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
-        (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
-        localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
-        (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
-        dv = dv * (1./3.) * 2 * dev_Deltat[0];
-        //NEED OLD GRID FOR THIS
-        d_vel[k] = d_vel[k] + dv;
-        
-    }
-    #include <stdio.h>
-    __global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smoke){
-        const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
-        const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
-        const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
-        if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
-        const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
-        
-        // Advection
-        // Iteratively compute alpha_m
-        float3 pos = make_float3(k_x*BLOCK_SIZE, k_y*BLOCK_SIZE, k_z*BLOCK_SIZE);
-        float3 alpha_m = d_vel[k] * dev_Deltat[0];
-        for(uint i = 0; i < SEMILAGRANGIAN_ITERS; i++){
-            float3 estimated = pos - alpha_m;
-            if(estimated.x < 0) estimated.x = 0;
-            if(estimated.y < 0) estimated.y = 0;
-            if(estimated.z < 0) estimated.z = 0;
-            uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
-                static_cast<uint>(estimated.y/BLOCK_SIZE),
-                static_cast<uint>(estimated.z/BLOCK_SIZE)};
-                float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
-                alpha_m = localCoord.x     * d_vel[flatten(b.x, b.y, b.z)  ]+
-                (1-localCoord.x) * d_vel[flatten(b.x+1, b.y, b.z)]+
-                localCoord.y     * d_vel[flatten(b.x, b.y, b.z)  ]+
-                (1-localCoord.y) * d_vel[flatten(b.x, b.y+1, b.z)]+
-                localCoord.z     * d_vel[flatten(b.x, b.y, b.z)  ]+
-                (1-localCoord.z) * d_vel[flatten(b.x, b.y, b.z+1)];
-                alpha_m = alpha_m * (1./3.) * dev_Deltat[0];
-            //printf("k:%d estx:%f bx:%u localx: %f \n", k,estimated.x,b.x, localCoord.x);
-            }
-            // Backtracing 
-            float3 estimated = pos - 2 * alpha_m;
-            if(estimated.x < 0) estimated.x = 0;
-            if(estimated.y < 0) estimated.y = 0;
-            if(estimated.z < 0) estimated.z = 0;
-            uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
-                static_cast<uint>(estimated.y/BLOCK_SIZE),
-                static_cast<uint>(estimated.z/BLOCK_SIZE)};
-                float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
-                float ds=  localCoord.x     * d_smoke[flatten(b.x, b.y, b.z)  ]+
-                (1-localCoord.x) * d_smoke[flatten(b.x+1, b.y, b.z)]+
-                localCoord.y     * d_smoke[flatten(b.x, b.y, b.z)  ]+
-           (1-localCoord.y) * d_smoke[flatten(b.x, b.y+1, b.z)]+
-           localCoord.z     * d_smoke[flatten(b.x, b.y, b.z)  ]+
-           (1-localCoord.z) * d_smoke[flatten(b.x, b.y, b.z+1)];
+               static_cast<uint>(estimated.y/BLOCK_SIZE),
+               static_cast<uint>(estimated.z/BLOCK_SIZE)};
+    float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
+    float ds=  localCoord.x     * d_smoke[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.x) * d_smoke[flatten(b.x+1, b.y, b.z)]+
+               localCoord.y     * d_smoke[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.y) * d_smoke[flatten(b.x, b.y+1, b.z)]+
+               localCoord.z     * d_smoke[flatten(b.x, b.y, b.z)  ]+
+               (1-localCoord.z) * d_smoke[flatten(b.x, b.y, b.z+1)];
     ds = ds * (1./3.) * 2 * dev_Deltat[0];
     //NEED OLD GRID FOR THIS
     d_smoke[k] = d_smoke[k] + ds;
 }
+
 #include "vec3.cuh"
 __device__ void swap(float * a, float * b){
     float temp = *b;
@@ -383,13 +388,13 @@ __global__ void generateSmokeColorBuffer( uchar4* dev_out, const float* d_smoke)
 }
 
 
-void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smokedensity, float * smokeRadiance, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
+void kernelLauncher(uchar4 *d_out, float *d_temp, float3** d_vel, float* d_smokedensity, float * smokeRadiance, int activeBuffer, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
     const dim3 gridSize(blocksNeeded(Ld.x, M_in.x), blocksNeeded(Ld.y, M_in.y), 
                         blocksNeeded(Ld.z,M_in.z));
     const size_t smSz = (M_in.x + 2 * RAD)*(M_in.y + 2 * RAD)*(M_in.z + 2 * RAD)*sizeof(float);//shared mem size
 
-    velocityKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
-    smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel, d_smokedensity);
+    velocityKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel[activeBuffer], d_vel[!activeBuffer], d_smokedensity);
+    smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_vel[activeBuffer], d_smokedensity);
     
     //resetSmokeRadiance<<<gridSize, M_in>>>(d_smokeRadiance);
     
@@ -400,9 +405,9 @@ void kernelLauncher(uchar4 *d_out, float *d_temp, float3* d_vel, float* d_smoked
     const dim3 out_M( M_in.x, M_in.y );
 }
 
-void resetVariables(float *d_temp, float3* d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in) {
+void resetVariables(float *d_temp, float3** d_vel, float* d_smokedensity, dim3 Ld, BC bc, dim3 M_in) {
     const dim3 gridSize( blocksNeeded(Ld.x, M_in.x), blocksNeeded( Ld.y, M_in.y), 
                             blocksNeeded(Ld.z, M_in.z));
 
-    resetKernel<<<gridSize, M_in>>>(d_temp, d_vel, d_smokedensity, bc);
+    resetKernel<<<gridSize, M_in>>>(d_temp, d_vel[0], d_vel[1], d_smokedensity, bc);
 }

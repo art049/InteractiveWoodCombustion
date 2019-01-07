@@ -68,9 +68,9 @@ void Physics::renderSmokeQuads(){
 }
 
 void Physics::renderGrid(){
-    glColor3f(.9,.9,.5);
     int sparsity = 20;
     glBegin(GL_LINES);
+    glColor3f(0,0,1);
     for(uint x = 0; x <= GRID_COUNT; x+=sparsity)
     {
         for(uint y = 0; y <= GRID_COUNT; y+=sparsity)
@@ -79,6 +79,7 @@ void Physics::renderGrid(){
             glVertex3f(x*BLOCK_SIZE, y*BLOCK_SIZE, GRID_SIZE);
         }        
     }
+    glColor3f(1,0,0);
     for(uint z = 0; z <= GRID_COUNT; z+=sparsity)
     {
         for(uint y = 0; y <= GRID_COUNT; y+=sparsity)
@@ -87,6 +88,7 @@ void Physics::renderGrid(){
             glVertex3f(GRID_SIZE, y*BLOCK_SIZE, z*BLOCK_SIZE);
         }        
     }
+    glColor3f(0,1,0);
     for(uint z = 0; z <= GRID_COUNT; z+=sparsity)
     {
         for(uint x = 0; x <= GRID_COUNT; x+=sparsity)

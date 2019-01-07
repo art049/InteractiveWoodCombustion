@@ -15,7 +15,7 @@ class dev_Grid3d
     public:
         dim3 Ld;
         float* dev_temperature;
-        float3* dev_velocity;
+        float3* dev_velocity[2];
         float* dev_smokeDensity;
         float* dev_smokeVoxelRadiance;
         float* dev_smokeVoxelTransparency;

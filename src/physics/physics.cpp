@@ -29,10 +29,7 @@ Physics::Physics(){
 //	set3DerivativeParameters(hds);
 //	set4DerivativeParameters(hds);
     
-    resetVariables( dev_grid3d->dev_temperature,
-                      dev_grid3d->dev_velocity,
-                      dev_grid3d->dev_smokeDensity,
-                      dev_L3, bc, M_i);
+    this->reset();
     
     testGPUAnim2dTex->initPixelBuffer();
 
@@ -45,15 +42,8 @@ Physics::Physics(){
 
 }
 Physics::~Physics() {
-    HANDLE_ERROR(
-        cudaFree(dev_grid3d->dev_temperature) 
-    );
-    HANDLE_ERROR(
-        cudaFree(dev_grid3d->dev_velocity) 
-    );
-    HANDLE_ERROR(
-        cudaFree(dev_grid3d->dev_smokeDensity)
-    );
+    delete dev_grid3d;
+    delete grid3d;
     if (smokeColorBufferObj) {
         cudaGLUnregisterBufferObject(smokeColorBufferObj);
         glDeleteBuffers(1, &smokeColorBufferObj);
@@ -63,20 +53,43 @@ void Physics::update() {
     
     uchar4 *d_out = 0;
     cudaGLMapBufferObject((void **)&d_out, smokeColorBufferObj);
-    kernelLauncher(d_out, 
-                   dev_grid3d->dev_temperature,
-                   dev_grid3d->dev_velocity,
-                   dev_grid3d->dev_smokeDensity,
-                   dev_grid3d->dev_smokeVoxelRadiance,
-                   activeBuffer,
-                   dev_L3, bc, M_i, slice );
+    if(activeBuffer)
+        kernelLauncher(d_out, 
+                       dev_grid3d->dev_temperature0,
+                       dev_grid3d->dev_temperature1,
+                       dev_grid3d->dev_velocity0,
+                       dev_grid3d->dev_velocity1,
+                       dev_grid3d->dev_ccvelocity,
+                       dev_grid3d->dev_vorticity,
+                       dev_grid3d->dev_smokeDensity0,
+                       dev_grid3d->dev_smokeDensity1,
+                       dev_grid3d->dev_smokeVoxelRadiance,
+                       activeBuffer,
+                       dev_L3, bc, M_i, slice );
+    else
+        kernelLauncher(d_out, 
+                       dev_grid3d->dev_temperature1,
+                       dev_grid3d->dev_temperature0,
+                       dev_grid3d->dev_velocity1,
+                       dev_grid3d->dev_velocity0,
+                       dev_grid3d->dev_ccvelocity,
+                       dev_grid3d->dev_vorticity,
+                       dev_grid3d->dev_smokeDensity1,
+                       dev_grid3d->dev_smokeDensity0,
+                       dev_grid3d->dev_smokeVoxelRadiance,
+                       activeBuffer,
+                       dev_L3, bc, M_i, slice );
+
     cudaGLUnmapBufferObject(smokeColorBufferObj);    
     activeBuffer = !activeBuffer;
 }
 
 void Physics::reset(){
-    resetVariables(dev_grid3d->dev_temperature,
-                   dev_grid3d->dev_velocity,
-                   dev_grid3d->dev_smokeDensity,
+    resetVariables(dev_grid3d->dev_temperature0,
+                   dev_grid3d->dev_temperature1,
+                   dev_grid3d->dev_velocity0,
+                   dev_grid3d->dev_velocity1,
+                   dev_grid3d->dev_smokeDensity0,
+                   dev_grid3d->dev_smokeDensity1,
                    dev_L3, bc, M_i);
 }

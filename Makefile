@@ -3,8 +3,8 @@ CC = g++-5
 CPP = g++-5
 CPPFLAGS = -std=c++11
 NVCC = /usr/local/cuda/bin/nvcc
-#COMPUTE_CAPABILITY = 61
-COMPUTE_CAPABILITY = 50
+COMPUTE_CAPABILITY = 61
+#COMPUTE_CAPABILITY = 50
 
 NVCCFLAGS  = -gencode arch=compute_$(COMPUTE_CAPABILITY),code=sm_$(COMPUTE_CAPABILITY)
 NVCCFLAGS += -m64 -std=c++11  -ccbin $(CPP) 

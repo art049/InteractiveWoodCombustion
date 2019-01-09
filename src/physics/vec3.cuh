@@ -11,6 +11,7 @@ class vec3  {
 public:
     __host__ __device__ vec3() {}
     __host__ __device__ vec3(float e0, float e1, float e2) { e[0] = e0; e[1] = e1; e[2] = e2; }
+    __host__ __device__ vec3(float3 f) { e[0] = f.x; e[1] = f.y; e[2] = f.z; }
     __host__ __device__ inline float x() const { return e[0]; }
     __host__ __device__ inline float y() const { return e[1]; }
     __host__ __device__ inline float z() const { return e[2]; }
@@ -33,6 +34,7 @@ public:
     __host__ __device__ inline float length() const { return sqrt(e[0]*e[0] + e[1]*e[1] + e[2]*e[2]); }
     __host__ __device__ inline float squared_length() const { return e[0]*e[0] + e[1]*e[1] + e[2]*e[2]; }
     __host__ __device__ inline void make_unit_vector();
+    __host__ __device__ inline float3 toFloat3();
 
 
     float e[3];
@@ -53,6 +55,9 @@ inline std::ostream& operator<<(std::ostream &os, const vec3 &t) {
 __host__ __device__ inline void vec3::make_unit_vector() {
     float k = 1.0 / sqrt(e[0]*e[0] + e[1]*e[1] + e[2]*e[2]);
     e[0] *= k; e[1] *= k; e[2] *= k;
+}
+__host__ __device__ inline float3 vec3::toFloat3() {
+    return make_float3(e[0], e[1], e[2]);
 }
 
 __host__ __device__ inline vec3 operator+(const vec3 &v1, const vec3 &v2) {

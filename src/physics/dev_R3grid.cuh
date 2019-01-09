@@ -14,17 +14,20 @@ class dev_Grid3d
 {
     public:
         dim3 Ld;
-        float* dev_temperature;
-        float3* dev_velocity[2];
-        float* dev_smokeDensity;
+        float* dev_temperature0; float* dev_temperature1;
+        float3* dev_velocity0; float3* dev_velocity1;
+        float3* dev_ccvelocity;
+        float3* dev_vorticity;
+        float* dev_smokeDensity0; float* dev_smokeDensity1;
+        float* dev_pressure;
         float* dev_smokeVoxelRadiance;
         float* dev_smokeVoxelTransparency;
         // constructor
         __host__ dev_Grid3d( dim3 );
-
-//		__host__ ~dev_Grid3d();
+        __host__ ~dev_Grid3d();
 
         __host__ int NFLAT();
+        __host__ int NFFLAT();
 };
 
 class dev_block3d

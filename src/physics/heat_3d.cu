@@ -57,7 +57,7 @@ __global__ void resetKernel(float * d_temp, float *  d_oldtemp,float3 *  d_vel,f
        d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
        d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / 25){
         d_smokedensity[k] = d_oldsmokedensity[k] = .5f;
-        d_temp[k] = d_oldtemp[k] = T_AMBIANT + 0.f;
+        d_temp[k] = d_oldtemp[k] = T_AMBIANT + 10.f;
     }
 }
 
@@ -97,7 +97,7 @@ __device__ float3 fconfinement(float3 * d_vorticity, int k_x, int k_y, int k_z){
     vec3 N(vec3(d_vorticity[flatten(k_x+1, k_y, k_z)]).length() - vec3(d_vorticity[k]).length(),
            vec3(d_vorticity[flatten(k_x, k_y+1, k_z)]).length() - vec3(d_vorticity[k]).length(),
            vec3(d_vorticity[flatten(k_x, k_y, k_z+1)]).length() - vec3(d_vorticity[k]).length());
-   // N /= BLOCK_SIZE; // NOT useful since we normalise
+   N /= BLOCK_SIZE; // NOT useful since we normalise
    // N.make_unit_vector();
     vec3 f = VORTICITY_EPSILON * BLOCK_SIZE * cross(N, vec3(d_vorticity[k]));
     return f.toFloat3();
@@ -135,10 +135,12 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, f
         return;
 
     // External forces
-    float3 fext = {0,0,0};
-    float3 fconf = fconfinement(d_vorticity, k_x, k_y, k_z);
+    float3 f = {0, 0, 0};
+    float3 fext = {1,0,0};
+    f = f + fext;
+    //f = f + fconfinement(d_vorticity, k_x, k_y, k_z);
     //printf("conf %f %f %f", fconf.x, fconf.y, fconf.z);
-    float3 f = fext + fconf + fbuoyancy(d_smokedensity, d_temp, k_x, k_y, k_z);
+    f = f  + fbuoyancy(d_smokedensity, d_temp, k_x, k_y, k_z);
     d_vel[k] = d_oldvel[k] + f * dev_Deltat[0];
     
     // Semi Lagrangian Advection
@@ -360,9 +362,8 @@ __global__ void generateSmokeColorBuffer( uchar4* dev_out, const float* d_smoke,
 }
 
 
-void forceIncompressibility(float3 * d_vel){
-    return;
-}
+
+
 
 void kernelLauncher(uchar4 *d_out,
                     float *d_temp, 

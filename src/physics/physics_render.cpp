@@ -100,7 +100,40 @@ void Physics::renderGrid(){
     glEnd();
 }
 
+void Physics::renderLightRays(){
+    const float tdefault = 0.3;
+    float t;
+    int3 voxel;
+    glBegin(GL_LINES);
+    for(int k_x = 0; k_x < SMOKE_CIRCULAR_RAY_COUNT; k_x++){
+        for(int k_y = 0; k_y < SMOKE_CIRCULAR_RAY_COUNT/2; k_y++){
+            float theta = k_y * SMOKE_RAY_DELTA_ANGLE;
+            float phi = k_x * SMOKE_RAY_DELTA_ANGLE;
+            vec3 rayDir(sin(phi)*cos(theta),
+                        sin(phi)*sin(theta),
+                        cos(phi));
+            bool inter = rayGridIntersect(vec3(SMOKE_LIGHT_POS), rayDir, &voxel, &t);
+            if(!inter){
+                glColor3f(1,0,0);
+                glVertex3fv((GLfloat *) &SMOKE_LIGHT_POS);
+                glVertex3f(SMOKE_LIGHT_POS.x + tdefault * sin(phi)*cos(theta),
+                           SMOKE_LIGHT_POS.y + tdefault * sin(phi)*sin(theta),
+                           SMOKE_LIGHT_POS.z + tdefault * cos(phi));
+            }
+            else {
+                glColor3f(0,1,0);
+                glVertex3fv((GLfloat *) &SMOKE_LIGHT_POS);
+                glVertex3f(SMOKE_LIGHT_POS.x + t * sin(phi)*cos(theta),
+                           SMOKE_LIGHT_POS.y + t * sin(phi)*sin(theta),
+                           SMOKE_LIGHT_POS.z + t * cos(phi));
+            }
+        }
+    }
+    glEnd();
+}
+
 void Physics::render() {
     if(gridEnabled) renderGrid();
+    renderLightRays();
     renderSmokeQuads();
 }

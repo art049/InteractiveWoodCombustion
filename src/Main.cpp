@@ -115,7 +115,7 @@ void init () {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glLineWidth (2.0); // Set the width of edges in GL_LINE polygon mode
-    glClearColor (.5f, .5f, .5f, 0.f); // Background color
+    glClearColor (.5f, .8f, .89f, 0.f); // Background color
     colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     try {

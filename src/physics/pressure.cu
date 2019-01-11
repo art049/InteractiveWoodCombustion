@@ -52,7 +52,7 @@ __device__ int valIndex(int k_x, int k_y, int k_z){
     }
 }
 
-__global__ void prepareSystem(int NFLAT, float3* d_vel, float* d_b, float* d_val, int* d_cind, int * d_rptr) {
+__global__ void prepareSystem(const int NFLAT, float3* d_vel, float* d_b, float* d_val, int* d_cind, int * d_rptr) {
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
@@ -66,42 +66,41 @@ __global__ void prepareSystem(int NFLAT, float3* d_vel, float* d_b, float* d_val
                  d_vel[flatten(k_x, k_y+1, k_z)].y - d_vel[flatten(k_x, k_y, k_z)].y + 
                  d_vel[flatten(k_x, k_y, k_z+1)].z - d_vel[flatten(k_x, k_y, k_z)].z ;
         d_b[k] /= BLOCK_SIZE * dev_Deltat[0];
-        d_val [offset    ] = -6; 
-        d_cind[offset    ] = k;
+        d_val [offset    ] =  1;
+        d_cind[offset    ] = flatten(k_x, k_y, k_z-1);
         d_val [offset + 1] =  1; 
-        d_cind[offset + 1] = flatten(k_x+1, k_y, k_z);
+        d_cind[offset + 1] = flatten(k_x, k_y-1, k_z);
         d_val [offset + 2] =  1; 
         d_cind[offset + 2] = flatten(k_x-1, k_y, k_z);
-        d_val [offset + 3] =  1; 
-        d_cind[offset + 3] = flatten(k_x, k_y+1, k_z);
+        d_val [offset + 3] = -6; 
+        d_cind[offset + 3] = k;
         d_val [offset + 4] =  1; 
-        d_cind[offset + 4] = flatten(k_x, k_y-1, k_z);
+        d_cind[offset + 4] = flatten(k_x+1, k_y, k_z);
         d_val [offset + 5] =  1; 
-        d_cind[offset + 5] = flatten(k_x, k_y, k_z+1);
-        d_val [offset + 6] =  1;
-        d_cind[offset + 6] = flatten(k_x+1, k_y, k_z-1);
+        d_cind[offset + 5] = flatten(k_x, k_y+1, k_z);
+        d_val [offset + 6] =  1; 
+        d_cind[offset + 6] = flatten(k_x, k_y, k_z+1);
         
         d_rptr[k] = offset;
     }
     //PRESSURE DIRICHLET BOUNDARY CONDITION
     else {
         d_b[k] = P_ATM;
-        d_b[k] /= BLOCK_SIZE * dev_Deltat[0];
-        d_val [offset    ] = 1; 
-        d_cind[offset    ] = k;
         // DUMMY VALUES to preserve alignement
-        d_cind[offset + 1] = (k+1)%NFLAT;
-        d_cind[offset + 2] = (k+2)%NFLAT;
-        d_cind[offset + 3] = (k+3)%NFLAT;
-        d_cind[offset + 4] = (k+4)%NFLAT;
-        d_cind[offset + 5] = (k+5)%NFLAT;
-        d_cind[offset + 6] = (k+6)%NFLAT;
+        d_cind[offset    ] =  0;//(k+6)%NFLAT;
+        d_cind[offset + 1] =  0;//(k+1)%NFLAT;
+        d_cind[offset + 2] =  0;//(k+2)%NFLAT;
+        d_cind[offset + 3] =  0;//(k+3)%NFLAT;
+        d_cind[offset + 4] =  0;//(k+4)%NFLAT;
+        d_cind[offset + 5] =  0;//(k+5)%NFLAT;
+        d_val [offset    ] =  0;
         d_val [offset + 1] =  0; 
         d_val [offset + 2] =  0; 
         d_val [offset + 3] =  0; 
         d_val [offset + 4] =  0; 
         d_val [offset + 5] =  0; 
-        d_val [offset + 6] =  0;
+        d_val [offset + 6] = 1; 
+        d_cind[offset + 6] = k;
         
         d_rptr[k] = offset;
         if(k == NFLAT-1){
@@ -109,7 +108,24 @@ __global__ void prepareSystem(int NFLAT, float3* d_vel, float* d_b, float* d_val
         }
     }
 }
-
+__global__ void resetPressure(float* d_pressure){
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
+    const int k = flatten(k_x, k_y, k_z);
+    d_pressure[k] = P_ATM;
+}
+__global__ void substractPressureGradient(float3 * d_vel, float* d_pressure){
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
+    const int k = flatten(k_x, k_y, k_z);
+    d_vel[k].x -= dev_Deltat[0] *  (d_pressure[flatten(k_x+1,k_y,k_z)] - d_pressure[k]) / BLOCK_SIZE;
+    d_vel[k].y -= dev_Deltat[0] *  (d_pressure[flatten(k_x,k_y+1,k_z)] - d_pressure[k]) / BLOCK_SIZE;
+    d_vel[k].z -= dev_Deltat[0] *  (d_pressure[flatten(k_x,k_y,k_z+1)] - d_pressure[k]) / BLOCK_SIZE;
+}
 void forceIncompressibility(float3 * d_vel, float* d_pressure){
     // TODO: CHOLESKI PREPROCESS
     const int NFLAT = GRID_COUNT * GRID_COUNT * GRID_COUNT;
@@ -119,28 +135,39 @@ void forceIncompressibility(float3 * d_vel, float* d_pressure){
 
     // CGLS solver config
     float shift = 0;
-    float tol = 1e-6;
-    int maxit = 20;
-    bool quiet = false;
+    float tol = 1e-4;//1e-6;
+    int maxit = 30;
+    bool quiet = true;
     int m = NFLAT;
     int n = NFLAT;
     int nnz = 7 * NFLAT;
     float *d_val, *d_b;
     int *d_cind, *d_rptr;
-    HANDLE_ERROR(cudaMalloc((void**)&d_val, (nnz + m) * sizeof(float)));
-    d_b = d_val + nnz;
-    HANDLE_ERROR(cudaMalloc((void**)&d_cind, (nnz + m + 1) * sizeof(int)));
-    d_rptr = d_cind + nnz;
+
+    HANDLE_ERROR(cudaMalloc((void**)&d_val, nnz * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc((void**)&d_b, m * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc((void**)&d_cind, nnz * sizeof(int)));
+    HANDLE_ERROR(cudaMalloc((void**)&d_rptr, (m + 1) * sizeof(int)));
+    resetPressure<<<gridSize, M_i>>>(d_pressure);
+    HANDLE_ERROR(cudaPeekAtLastError());
+    HANDLE_ERROR(cudaDeviceSynchronize());
 
     prepareSystem<<<gridSize, M_i>>>(NFLAT, d_vel, d_b, d_val, d_cind, d_rptr);
     HANDLE_ERROR(cudaPeekAtLastError());
-
+    HANDLE_ERROR(cudaDeviceSynchronize());
+    
+  
     int flag = cgls::Solve<float, cgls::CSR>(d_val, d_rptr, d_cind, m, n, nnz, d_b, d_pressure, 
                                              shift, tol, maxit, quiet);
     if (flag != 0)
         printf("[CGLS warning] Flag = %d\n", flag);
     HANDLE_ERROR(cudaFree(d_val));
+    HANDLE_ERROR(cudaFree(d_b));
     HANDLE_ERROR(cudaFree(d_cind));
+    HANDLE_ERROR(cudaFree(d_rptr));
 
+    //substractPressureGradient<<<gridSize, M_i>>>(d_vel, d_pressure);
+    HANDLE_ERROR(cudaPeekAtLastError());
     HANDLE_ERROR(cudaDeviceSynchronize());
+
 }

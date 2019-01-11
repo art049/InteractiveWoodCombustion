@@ -29,7 +29,7 @@ typedef struct {
 int blocksNeeded( int N_i, int M_i);
 __device__ int flatten(int col, int row, int z);
 __device__ int flatten(int col, int row, int z, int width, int height, int depth);
-
+__device__ unsigned char clip(int n);
 void kernelLauncher(uchar4 *d_out,
                     float *d_temp, 
                     float *d_oldtemp, 

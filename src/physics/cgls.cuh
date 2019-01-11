@@ -120,6 +120,7 @@
 
 #include <cublas_v2.h>
 #include <cusparse.h>
+#include <thrust/system/cuda/detail/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/functional.h>
 #include <thrust/transform_reduce.h>

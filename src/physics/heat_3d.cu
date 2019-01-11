@@ -4,8 +4,10 @@
  * 20160729
  */
 #include "heat_3d.cuh"
+#include "pressure.cuh"
 #include "physics.h"
 #include "vec3.cuh"
+
 #define RAD 1 // radius of the stencil; helps to deal with "boundary conditions" at (thread) block's ends
 
 __constant__ float dev_Deltat[1];
@@ -370,6 +372,7 @@ void kernelLauncher(uchar4 *d_out,
                     float *d_oldtemp, 
                     float3* d_vel, 
                     float3* d_oldvel, 
+                    float* d_pressure,
                     float3* d_ccvel,
                     float3* d_vorticity,
                     float* d_smokedensity,
@@ -384,7 +387,7 @@ void kernelLauncher(uchar4 *d_out,
     HANDLE_ERROR(cudaPeekAtLastError());
     velocityKernel<<<gridSize, M_in, smSz>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity);
     HANDLE_ERROR(cudaPeekAtLastError());
-    //forceIncompressibility(d_vel);
+    forceIncompressibility(d_vel, d_pressure);
     tempAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_oldtemp, d_oldvel, d_oldsmokedensity);
     HANDLE_ERROR(cudaPeekAtLastError());
     smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_oldtemp, d_oldvel, d_smokedensity, d_oldsmokedensity);

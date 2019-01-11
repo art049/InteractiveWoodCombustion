@@ -3,8 +3,8 @@
  * Ernest Yeung  ernestyalumni@gmail.com
  * 20160729
  */
-#include "heat_3d.cuh"
 #include "pressure.cuh"
+#include "heat_3d.cuh"
 #include "physics.h"
 #include "vec3.cuh"
 

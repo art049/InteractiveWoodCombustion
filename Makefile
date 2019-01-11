@@ -13,7 +13,7 @@ NVCCFLAGS += -g -G -Xcompiler "$(COMPILER_OPTIONS)" -O2
 
 INCLUDES = -I/usr/local/cuda/samples/common/inc 
 
-LDFLAGS = -lglut -lGLU -lGL -lGLEW -lm -lpthread
+LDFLAGS = -lglut -lGLU -lGL -lGLEW -lm -lpthread -lcublas -lcusparse
 LDFLAGS += -L/usr/local/cuda/lib64
 
 # PATHS CONFIGURATION

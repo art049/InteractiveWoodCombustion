@@ -18,17 +18,18 @@
 #include "smoke_render.cuh"
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
-static const float Deltat[1] {0.005f}; 
-static const uint GRID_COUNT =  80;
-static const float GRID_SIZE = 1.;
+static const float Deltat[1] {0.0053f}; 
+static const uint GRID_COUNT =  100;
+static const float GRID_SIZE = 1;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
 static const dim3 M_i { 8 , 8 , 8  };
 static const float T_AMBIANT = 20.0f;
 static const float P_ATM = 1.0f;
-static const float BUOY_ALPHA = 1; // SMOKE DENSITY
-static const float BUOY_BETA = 1; // TEMPERATURE
-static const uint SEMILAGRANGIAN_ITERS = 5;
-static const float VORTICITY_EPSILON = 1e-4;
+static const float BUOY_ALPHA = 0.1; // SMOKE DENSITY
+static const float BUOY_BETA = 0.1; // TEMPERATURE
+static const uint SEMILAGRANGIAN_ITERS = 15;
+static const float VORTICITY_EPSILON = 1e-3;
+static const int PRESSURE_JACOBI_ITERATIONS = 10;
 static const float SMOKE_EXTINCTION_COEFF = 8e1;
 static const float SMOKE_ALBEDO = 1;
 static const int SMOKE_CIRCULAR_RAY_COUNT = 200 ;

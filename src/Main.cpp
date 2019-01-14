@@ -44,7 +44,7 @@ static const unsigned int DEFAULT_SCREENHEIGHT = 680;
 static unsigned int SCREEN_WIDTH = DEFAULT_SCREENWIDTH;
 static unsigned int SCREEN_HEIGHT = DEFAULT_SCREENHEIGHT;
 
-static const string appTitle ("Interactive Wood Combustion for Botanical Tree Models");
+static const string appTitle ("IWCfBTM");
 static const string myName ("Arthur Pastel");
 static GLint window;
 static unsigned int FPS = 0;

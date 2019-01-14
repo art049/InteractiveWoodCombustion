@@ -28,8 +28,15 @@ typedef struct {
 
 int blocksNeeded( int N_i, int M_i);
 __device__ int flatten(int col, int row, int z);
+__device__ int vflatten(int col, int row, int z);
 __device__ int flatten(int col, int row, int z, int width, int height, int depth);
 __device__ unsigned char clip(int n);
+
+__device__ float3 operator+(const float3 &a, const float3 &b);
+__device__ float3 operator-(const float3 &a, const float3 &b);
+__device__ float3 operator*(const float3 &a, const float &b);
+__device__ float3 operator*(const float &b, const float3 &a);
+
 void kernelLauncher(uchar4 *d_out,
                     float *d_temp, 
                     float *d_oldtemp, 

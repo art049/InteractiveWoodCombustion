@@ -34,7 +34,6 @@
 #include "Exception.h"
 #include "LightSource.h"
 
-#include "physics/constants.h"
 #include "physics/physics.h"
 
 using namespace std;
@@ -186,7 +185,7 @@ void updatePerVertexColorResponse () {
 }
 
 void renderScene () {
-    glProgram->use ();
+    //glProgram->use ();
 
     //updatePerVertexColorResponse ();
     glVertexPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(tree.positions()[0])));
@@ -194,7 +193,7 @@ void renderScene () {
     glColorPointer (3, GL_FLOAT, sizeof (Vec3f), (GLvoid*)(&(colorResponses[0])));
     glDrawElements (GL_TRIANGLES, 3*tree.triangles().size(), GL_UNSIGNED_INT, (GLvoid*)((&tree.triangles()[0])));
     
-    glProgram->stop();
+    //glProgram->stop();
 }
 void renderSmoke() {
     glMatrixMode(GL_PROJECTION);

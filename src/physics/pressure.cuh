@@ -6,5 +6,6 @@
 #include "../cuda_common/errors.h"
 
 void forceIncompressibility(float3 * d_vel, float* d_pressure);
+__global__ void resetPressure(float* d_pressure);
 
 #endif /* PRESSURE_CUH */

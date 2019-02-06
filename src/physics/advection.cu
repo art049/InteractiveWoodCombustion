@@ -1,7 +1,40 @@
 #include "advection.cuh"
 
+__device__ float min8f(float a, float b, float c, float d, float e, float f, float g, float h){
+    return fminf(fminf(fminf(a,b), fminf(c,d)),fminf(fminf(e,f),fminf(g,h)));
+}
+__device__ float max8f(float a, float b, float c, float d, float e, float f, float g, float h){
+    return fmaxf(fmaxf(fmaxf(a,b), fmaxf(c,d)),fmaxf(fmaxf(e,f),fmaxf(g,h)));
+}
+__device__ float clampf(float x, float m, float M){
+    if(x < m) return m;
+    if(x > M) return M;    
+    return x;
+}
+__device__ float3 min8f3(float3 a, float3 b, float3 c, float3 d, float3 e, float3 f, float3 g, float3 h){
+    return make_float3(
+        min8f(a.x,b.x,c.x,d.x,e.x,f.x,g.x,h.x),
+        min8f(a.y,b.y,c.y,d.y,e.y,f.y,g.y,h.y),
+        min8f(a.z,b.z,c.z,d.z,e.z,f.z,g.z,h.z)
+    );
+}
+__device__ float3 max8f3(float3 a, float3 b, float3 c, float3 d, float3 e, float3 f, float3 g, float3 h){
+    return make_float3(
+        max8f(a.x,b.x,c.x,d.x,e.x,f.x,g.x,h.x),
+        max8f(a.y,b.y,c.y,d.y,e.y,f.y,g.y,h.y),
+        max8f(a.z,b.z,c.z,d.z,e.z,f.z,g.z,h.z)
+    );
+}
+__device__ float3 clampf3(float3 x, float3 m, float3 M){
+    return make_float3(
+        clampf(x.x,m.x,M.x),
+        clampf(x.y,m.y,M.y),
+        clampf(x.z,m.z,M.z)
+    );
+}
+
 // Advect phi along vel
-// Vector 3D MacCormack Advection Scheme used to advect velocity
+// Vector 3D MacCormack modified Advection Scheme used to advect velocity
 __global__ void macCormackAdvection(float3 * phi, float3 * oldphi, float3 * vel, float3 * predicted){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -20,16 +53,34 @@ __global__ void macCormackAdvection(float3 * phi, float3 * oldphi, float3 * vel,
         0.5f * (vel[k].z + vel[flatten(k_x, k_y, k_z+1)].z)
     };
     // Predictor Step
-    predicted[k] = oldphi[k] - d * (v.x * (oldphi[flatten(k_x+1, k_y, k_z)] - oldphi[k]) +
-                                    v.y * (oldphi[flatten(k_x, k_y+1, k_z)] - oldphi[k]) +
-                                    v.z * (oldphi[flatten(k_x, k_y, k_z+1)] - oldphi[k]) );
+    predicted[k] = oldphi[k] - d * (v.x * (oldphi[k] - oldphi[flatten(k_x-1, k_y, k_z)]) +
+                                    v.y * (oldphi[k] - oldphi[flatten(k_x, k_y-1, k_z)]) +
+                                    v.z * (oldphi[k] - oldphi[flatten(k_x, k_y, k_z-1)]) );
     __syncthreads();
     // Corrector Step
-    float3 a= 0.5 * (oldphi[k] + predicted[k] - d * (v.x * (predicted[k] - predicted[flatten(k_x-1, k_y, k_z)]) +
-                                                     v.y * (predicted[k] - predicted[flatten(k_x, k_y-1, k_z)]) +
-                                                     v.z * (predicted[k] - predicted[flatten(k_x, k_y, k_z-1)]) ));
+    float3 a= 0.5 * (oldphi[k] + predicted[k] - d * (v.x * (predicted[flatten(k_x+1, k_y, k_z)] - predicted[k]) +
+                                                     v.y * (predicted[flatten(k_x, k_y+1, k_z)] - predicted[k]) +
+                                                     v.z * (predicted[flatten(k_x, k_y, k_z+1)] - predicted[k]) ));
+    
     __syncthreads();
-    phi[k] = a;
+    int3 u = {v.x>0 ? -1 : 1, v.y>0 ? -1 : 1, v.z>0 ? -1 : 1};
+    float3 m = min8f3(oldphi[flatten(k_x,k_y,k_z)], 
+                      oldphi[flatten(k_x+u.x, k_y, k_z)], 
+                      oldphi[flatten(k_x, k_y+u.y, k_z)],
+                      oldphi[flatten(k_x, k_y, k_z+u.z)],
+                      oldphi[flatten(k_x, k_y+u.y, k_z+u.z)],
+                      oldphi[flatten(k_x+u.x, k_y, k_z+u.z)],
+                      oldphi[flatten(k_x+u.x, k_y+u.y, k_z)],
+                      oldphi[flatten(k_x+u.x, k_y+u.y, k_z+u.z)]);
+    float3 M = max8f3(oldphi[flatten(k_x,k_y,k_z)], 
+                      oldphi[flatten(k_x+u.x, k_y, k_z)], 
+                      oldphi[flatten(k_x, k_y+u.y, k_z)],
+                      oldphi[flatten(k_x, k_y, k_z+u.z)],
+                      oldphi[flatten(k_x, k_y+u.y, k_z+u.z)],
+                      oldphi[flatten(k_x+u.x, k_y, k_z+u.z)],
+                      oldphi[flatten(k_x+u.x, k_y+u.y, k_z)],
+                      oldphi[flatten(k_x+u.x, k_y+u.y, k_z+u.z)]);
+    phi[k] = clampf3(a, m, M);
 }
 void advect(float3 * phi, float3 * oldphi, float3 * vel){
     int NFLAT =  GRID_COUNT * GRID_COUNT * GRID_COUNT;
@@ -43,30 +94,9 @@ void advect(float3 * phi, float3 * oldphi, float3 * vel){
     HANDLE_ERROR(cudaDeviceSynchronize());
     HANDLE_ERROR(cudaFree(predicted));
 }
-__device__ float min4f(float a, float b, float c, float d){
-    return fminf(fminf(a,b), fminf(c,d));
-}
-__device__ float max4f(float a, float b, float c, float d){
-    return fmaxf(fmaxf(a,b), fmaxf(c,d));    
-}
-__device__ float min7f(float a, float b, float c, float d, float e, float f, float g){
-    return fminf(fminf(fminf(a,b), fminf(c,d)),fminf(fminf(e,f),g));
-}
-__device__ float max7f(float a, float b, float c, float d, float e, float f, float g){
-    return fmaxf(fmaxf(fmaxf(a,b), fmaxf(c,d)),fmaxf(fmaxf(e,f),g));
-}
-__device__ float min8f(float a, float b, float c, float d, float e, float f, float g, float h){
-    return fminf(fminf(fminf(a,b), fminf(c,d)),fminf(fminf(e,f),fminf(g,h)));
-}
-__device__ float max8f(float a, float b, float c, float d, float e, float f, float g, float h){
-    return fmaxf(fmaxf(fmaxf(a,b), fmaxf(c,d)),fmaxf(fmaxf(e,f),fmaxf(g,h)));
-}
-__device__ float clamp(float x, float m, float M){
-    if(x < m) return m;
-    if(x > M) return M;    
-    return x;
-}
-// Scalar 3D macCormack Advection Scheme
+
+
+// Scalar 3D macCormack modified Advection Scheme
 __global__ void macCormackAdvection(float * phi, float * oldphi, float3 * vel, float * predicted, float boundary){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -113,15 +143,7 @@ __global__ void macCormackAdvection(float * phi, float * oldphi, float3 * vel, f
                     oldphi[flatten(k_x+u.x, k_y, k_z+u.z)],
                     oldphi[flatten(k_x+u.x, k_y+u.y, k_z)],
                     oldphi[flatten(k_x+u.x, k_y+u.y, k_z+u.z)]);
-    
-    //max7f(oldphi[flatten(k_x,k_y,k_z)],
-                    //oldphi[flatten(k_x-1, k_y, k_z)], 
-                    //oldphi[flatten(k_x, k_y-1, k_z)],
-                    //oldphi[flatten(k_x, k_y, k_z-1)]);
-    phi[k] = clamp(a, m, M);
-    //phi[k] = a;
-    //if(phi[k] < boundary) phi[k] = boundary;
-
+    phi[k] = clampf(a, m, M);
 }
 void advect(float * phi, float * oldphi, float3 * vel, float boundary){
     int NFLAT =  GRID_COUNT * GRID_COUNT * GRID_COUNT;

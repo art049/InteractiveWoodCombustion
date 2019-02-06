@@ -93,5 +93,6 @@ void Physics::reset(){
                    dev_grid3d->dev_velocity1,
                    dev_grid3d->dev_smokeDensity0,
                    dev_grid3d->dev_smokeDensity1,
+                   dev_grid3d->dev_pressure,
                    dev_L3, bc, M_i);
 }

@@ -57,6 +57,7 @@ void resetVariables(float* d_temp,
                     float3* d_oldvel, 
                     float* d_smokedensity,
                     float* d_oldsmokedensity,
+                    float* d_pressure, 
                     dim3 Ld, BC bc, dim3 M_in);
 
 #endif // __HEAT_2D_H__

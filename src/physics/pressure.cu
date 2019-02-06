@@ -170,10 +170,11 @@ __global__ void substractPressureGradient(float3 * d_vel, float* d_pressure){
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     if(k_x == 0 || k_x >= GRID_COUNT-1  || k_y == 0 || k_y >= GRID_COUNT-1 || k_z == 0 || k_z >= GRID_COUNT-1) return;
-    const int k = flatten(k_x, k_y, k_z);
-    d_vel[k].x -= dev_Deltat[0] *  (d_pressure[flatten(k_x+1,k_y,k_z)] - d_pressure[k]) / BLOCK_SIZE;
-    d_vel[k].y -= dev_Deltat[0] *  (d_pressure[flatten(k_x,k_y+1,k_z)] - d_pressure[k]) / BLOCK_SIZE;
-    d_vel[k].z -= dev_Deltat[0] *  (d_pressure[flatten(k_x,k_y,k_z+1)] - d_pressure[k]) / BLOCK_SIZE;
+    const int k = vflatten(k_x, k_y, k_z);
+    const int kcentered = flatten(k_x,k_y,k_z);
+    d_vel[k].x -= dev_Deltat[0] *  (d_pressure[flatten(k_x+1,k_y,k_z)] - d_pressure[kcentered]) / BLOCK_SIZE;
+    d_vel[k].y -= dev_Deltat[0] *  (d_pressure[flatten(k_x,k_y+1,k_z)] - d_pressure[kcentered]) / BLOCK_SIZE;
+    d_vel[k].z -= dev_Deltat[0] *  (d_pressure[flatten(k_x,k_y,k_z+1)] - d_pressure[kcentered]) / BLOCK_SIZE;
 }
 void forceIncompressibility(float3 * d_vel, float* d_pressure){
     // TODO: CHOLESKI PREPROCESS
@@ -185,10 +186,8 @@ void forceIncompressibility(float3 * d_vel, float* d_pressure){
     HANDLE_ERROR(cudaMalloc(&d_f, NFLAT*sizeof(float)));
     float * d_pressure1;    
     HANDLE_ERROR(cudaMalloc(&d_pressure1, NFLAT*sizeof(float)));
-    
-    resetPressure<<<gridSize, M_i>>>(d_pressure);
-    HANDLE_ERROR(cudaPeekAtLastError());
-    HANDLE_ERROR(cudaDeviceSynchronize());
+    resetPressure<<<gridSize, M_i>>>(d_pressure1);
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
     
     prepareJacobiMethod<<<gridSize, M_i>>>(d_vel, d_f);
     HANDLE_ERROR(cudaPeekAtLastError());

@@ -30,12 +30,12 @@ __device__ int flatten(int col, int row, int z, int width, int height, int depth
     return idxClip(col, width) + idxClip(row,height)*width + idxClip(z,depth)*width*height;
 }
 __device__ int flatten(int col, int row, int z) {
-    if(col >= GRID_COUNT || row >= GRID_COUNT || z >= GRID_COUNT)
+    if(col >= GRID_COUNT || row >= GRID_COUNT || z >= GRID_COUNT || col < 0 || row < 0 || z < 0)
         printf("flatten oob");
     return idxClip(col, GRID_COUNT) + idxClip(row,GRID_COUNT)*GRID_COUNT + idxClip(z,GRID_COUNT)*GRID_COUNT*GRID_COUNT;
 }
 __device__ int vflatten(int col, int row, int z) {
-    if(col >= GRID_COUNT+1 || row >= GRID_COUNT+1 || z >= GRID_COUNT+1)
+    if(col >= GRID_COUNT+1 || row >= GRID_COUNT+1 || z >= GRID_COUNT+1 || col < 0 || row < 0 || z < 0)
         printf("vflatten oob");
     return idxClip(col, GRID_COUNT+1) + idxClip(row,GRID_COUNT+1)*(GRID_COUNT+1) + idxClip(z,GRID_COUNT+1)*(GRID_COUNT+1)*(GRID_COUNT+1);
 }
@@ -65,9 +65,9 @@ __global__ void resetKernelCentered(float* d_temp, float*  d_oldtemp, float*  d_
     d_smokedensity[k] = d_oldsmokedensity[k] = 0.f;
     if(d_abs(k_z - GRID_COUNT/2) * d_abs(k_z - GRID_COUNT/2) + 
     d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
-    d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*25)){
-        d_oldsmokedensity[k] = d_smokedensity[k] =0.5f;
-        d_oldtemp[k] = d_temp[k] = 1.f;
+    d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*5*25)){
+        d_oldsmokedensity[k] = d_smokedensity[k] =1.f;
+        d_oldtemp[k] = d_temp[k] = T_AMBIANT + 50.f;
     }
 }
 __global__ void resetKernelVelocity(float3 *  d_vel,float3 *  d_oldvel) {
@@ -98,11 +98,11 @@ __device__ float3 getAlpham (float3 * d_vel, float3 pos, int k){
                    static_cast<uint>(estimated.z/BLOCK_SIZE)};
         float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE); 
         alpha_m.x = (1-localCoord.x) * d_vel[vflatten(b.x, b.y, b.z)  ].x+
-                    localCoord.x     * d_vel[vflatten(b.x+1, b.y, b.z)].x;
+                    (localCoord.x)     * d_vel[vflatten(b.x+1, b.y, b.z)].x;
         alpha_m.y = (1-localCoord.y) * d_vel[vflatten(b.x, b.y, b.z)  ].y+
-                    localCoord.y     * d_vel[vflatten(b.x, b.y+1, b.z)].y;
+                    (localCoord.y)     * d_vel[vflatten(b.x, b.y+1, b.z)].y;
         alpha_m.z = (1-localCoord.z) * d_vel[vflatten(b.x, b.y, b.z)  ].z+
-                    localCoord.z     * d_vel[vflatten(b.x, b.y, b.z+1)].z;
+                    (localCoord.z)     * d_vel[vflatten(b.x, b.y, b.z+1)].z;
         alpha_m = alpha_m * dev_Deltat[0];
     }
     //CLIPPING ON FACES
@@ -112,7 +112,7 @@ __device__ float3 fbuoyancy(float * d_smoke, float* d_temp, int k_x, int k_y, in
     const int k = flatten(k_x, k_y, k_z);
     float3 f = make_float3(0,0,0);
     if(k_y == GRID_COUNT - 1){
-        f.y += BUOY_ALPHA*d_smoke[k];
+        f.y += -BUOY_ALPHA*d_smoke[k];
         f.y += BUOY_BETA*(d_temp[k] - T_AMBIANT);
     }
     else {
@@ -158,6 +158,19 @@ __global__ void computeVorticity(float3 *d_vorticity, float3* d_vel, float3* d_c
     d_vorticity[k].z /= 2 * BLOCK_SIZE;
 }
 #include <stdio.h>
+__global__ void sourcesKernel(float* d_smokedensity, float* d_temp){
+    const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+    const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
+    const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
+    if ((k_x >= GRID_COUNT ) || (k_y >= GRID_COUNT ) || (k_z >= GRID_COUNT)) return;
+    const int k = flatten(k_x, k_y, k_z);
+    if(d_abs(k_z - GRID_COUNT/2) * d_abs(k_z - GRID_COUNT/2) + 
+    d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
+    d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*5*25)){
+        d_smokedensity[k] =1;
+        d_temp[k] = T_AMBIANT + 250.f;
+    }   
+}
 
 __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float* d_smokedensity, float3* d_vorticity){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -166,14 +179,12 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, f
     if ((k_x >= GRID_COUNT ) || (k_y >= GRID_COUNT ) || (k_z >= GRID_COUNT)) return;
     const int k = flatten(k_x, k_y, k_z);
     
-
     // External forces
     float3 f = {0, 0, 0};
-    float3 fext = {3,0,0. };
+    float3 fext = {-0.,0,0. };
     f = f + fext;
     f = f + fconfinement(d_vorticity, k_x, k_y, k_z);    
     f = f  + fbuoyancy(d_smokedensity, d_temp, k_x, k_y, k_z);
-    d_vel[k] = d_oldvel[k] + f * dev_Deltat[0];
     
     //Boundary conditions
     if(k_x == 0 || k_x == GRID_COUNT - 1)
@@ -183,43 +194,39 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, f
     if(k_z == 0 || k_z == GRID_COUNT - 1)
         d_vel[k].z= 0;
     
-    if(d_abs(k_z - GRID_COUNT/2) * d_abs(k_z - GRID_COUNT/2) + 
-    d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
-    d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*5*25)){
-        d_smokedensity[k] +=0.5f;
-        //d_temp[k] = 1.f;
-    }    
-        
     // Semi Lagrangian Advection
-    //float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
-    //float3 alpha_m = getAlpham(d_oldvel, pos, k);
-    //// Backtracing 
-    //float3 estimated = pos - 2 * alpha_m;
-    ////Clip on boundaries faces
-    //if(estimated.x < BLOCK_SIZE) estimated.x = BLOCK_SIZE;
-    //if(estimated.y < BLOCK_SIZE) estimated.y = BLOCK_SIZE;
-    //if(estimated.z < BLOCK_SIZE) estimated.z = BLOCK_SIZE;
-    //if(estimated.x > GRID_SIZE - BLOCK_SIZE) estimated.x = GRID_SIZE - BLOCK_SIZE;
-    //if(estimated.y > GRID_SIZE - BLOCK_SIZE) estimated.y = GRID_SIZE - BLOCK_SIZE;
-    //if(estimated.z > GRID_SIZE - BLOCK_SIZE) estimated.z = GRID_SIZE - BLOCK_SIZE;
-    //
-    //int3 b = {static_cast<int>(estimated.x/BLOCK_SIZE),
-    //           static_cast<int>(estimated.y/BLOCK_SIZE),
-    //           static_cast<int>(estimated.z/BLOCK_SIZE)};
-    //
-    //float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE);
-    ////Velocity per component
-    //float3 dv;
-    //dv.x = (1-localCoord.x) * d_oldvel[vflatten(b.x, b.y, b.z)  ].x+
-    //       localCoord.x     * d_oldvel[vflatten(b.x+1, b.y, b.z)].x;
-    //dv.y = (1-localCoord.y) * d_oldvel[vflatten(b.x, b.y, b.z)  ].y+
-    //       localCoord.y     * d_oldvel[vflatten(b.x, b.y+1, b.z)].y;
-    //dv.z = (1-localCoord.z) * d_oldvel[vflatten(b.x, b.y, b.z)  ].z+
-    //       localCoord.z     * d_oldvel[vflatten(b.x, b.y, b.z+1)].z;
+    float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
+    float3 alpha_m = getAlpham(d_oldvel, pos, k);
+    // Backtracing 
+    float3 estimated = pos - 2 * alpha_m;
+    //Clip on boundaries faces
+    if(estimated.x < BLOCK_SIZE) estimated.x = BLOCK_SIZE;
+    if(estimated.y < BLOCK_SIZE) estimated.y = BLOCK_SIZE;
+    if(estimated.z < BLOCK_SIZE) estimated.z = BLOCK_SIZE;
+    if(estimated.x > GRID_SIZE - BLOCK_SIZE) estimated.x = GRID_SIZE - BLOCK_SIZE;
+    if(estimated.y > GRID_SIZE - BLOCK_SIZE) estimated.y = GRID_SIZE - BLOCK_SIZE;
+    if(estimated.z > GRID_SIZE - BLOCK_SIZE) estimated.z = GRID_SIZE - BLOCK_SIZE;
+    
+    int3 b = {static_cast<int>(estimated.x/BLOCK_SIZE),
+               static_cast<int>(estimated.y/BLOCK_SIZE),
+               static_cast<int>(estimated.z/BLOCK_SIZE)};
+    
+    float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1/BLOCK_SIZE);
+    //Velocity per component
+    float3 dv;
+    dv.x = (1-localCoord.x) * d_oldvel[vflatten(b.x, b.y, b.z)  ].x+
+           (localCoord.x)     * d_oldvel[vflatten(b.x+1, b.y, b.z)].x;
+    dv.y = (1-localCoord.y) * d_oldvel[vflatten(b.x, b.y, b.z)  ].y+
+           (localCoord.y)     * d_oldvel[vflatten(b.x, b.y+1, b.z)].y;
+    dv.z = (1-localCoord.z) * d_oldvel[vflatten(b.x, b.y, b.z)  ].z+
+           (localCoord.z)     * d_oldvel[vflatten(b.x, b.y, b.z+1)].z;
     //dv = dv * 2 * dev_Deltat[0];
-    //d_vel[k] = d_vel[k] + dv;        
+    d_vel[k] = dv + f * dev_Deltat[0];        
+
+    //d_vel[k] = d_oldvel[k] + dv + f * dev_Deltat[0];        
 }
 __device__ float scalarLinearInt(float* scalarField, float3 pos, float oobvalue){
+    // Trilinear interpolation
     int x = static_cast<int> (pos.x / BLOCK_SIZE);
     int y = static_cast<int> (pos.y / BLOCK_SIZE);
     int z = static_cast<int> (pos.z / BLOCK_SIZE);
@@ -253,22 +260,30 @@ __global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smok
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
     // Advection
     float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
+    //float3 pos = make_float3((k_x)*BLOCK_SIZE, (k_y)*BLOCK_SIZE, (k_z)*BLOCK_SIZE);
     float3 alpha_m = getAlpham(d_vel, pos, k);
     // Backtracing 
     float3 estimated = pos - 2 * alpha_m;
-    if(estimated.x < 0) estimated.x = 0;
-    if(estimated.y < 0) estimated.y = 0;
-    if(estimated.z < 0) estimated.z = 0;
+     //Clip on boundaries faces
+     if(estimated.x < BLOCK_SIZE) estimated.x = BLOCK_SIZE;
+     if(estimated.y < BLOCK_SIZE) estimated.y = BLOCK_SIZE;
+     if(estimated.z < BLOCK_SIZE) estimated.z = BLOCK_SIZE;
+     if(estimated.x > GRID_SIZE - BLOCK_SIZE) estimated.x = GRID_SIZE - BLOCK_SIZE;
+     if(estimated.y > GRID_SIZE - BLOCK_SIZE) estimated.y = GRID_SIZE - BLOCK_SIZE;
+     if(estimated.z > GRID_SIZE - BLOCK_SIZE) estimated.z = GRID_SIZE - BLOCK_SIZE;
     //uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
     //           static_cast<uint>(estimated.y/BLOCK_SIZE),
     //           static_cast<uint>(estimated.z/BLOCK_SIZE)};
     //float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
     //float ds = d_smoke[flatten(b.x, b.y, b.z) ];
 
-    float ds = scalarLinearInt(d_smoke, estimated, 0.f);
-    ds = ds * 2 * dev_Deltat[0];
-    //NEED OLD GRID FOR THIS
-    d_smoke[k] = d_oldsmoke[k] + ds;
+    float ds = scalarLinearInt(d_oldsmoke, estimated, 0.f);
+     
+    
+    //ds = ds * 2 * dev_Deltat[0];
+    __syncthreads();
+    d_smoke[k] = ds;
+
 }
 __global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_vel){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -277,23 +292,39 @@ __global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
     // Advection
-    float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
+    //float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
+    float3 pos = make_float3((k_x)*BLOCK_SIZE, (k_y)*BLOCK_SIZE, (k_z)*BLOCK_SIZE);
     float3 alpha_m = getAlpham(d_vel, pos, k);
     // Backtracing 
     float3 estimated = pos - 2 * alpha_m;
-    if(estimated.x < 0) estimated.x = 0;
-    if(estimated.y < 0) estimated.y = 0;
-    if(estimated.z < 0) estimated.z = 0;
+    // Clipping
+    if(estimated.x < BLOCK_SIZE) estimated.x = BLOCK_SIZE;
+    if(estimated.y < BLOCK_SIZE) estimated.y = BLOCK_SIZE;
+    if(estimated.z < BLOCK_SIZE) estimated.z = BLOCK_SIZE;
+    if(estimated.x > GRID_SIZE - BLOCK_SIZE) estimated.x = GRID_SIZE - BLOCK_SIZE;
+    if(estimated.y > GRID_SIZE - BLOCK_SIZE) estimated.y = GRID_SIZE - BLOCK_SIZE;
+    if(estimated.z > GRID_SIZE - BLOCK_SIZE) estimated.z = GRID_SIZE - BLOCK_SIZE;
     //uint3 b = {static_cast<uint>(estimated.x/BLOCK_SIZE),
     //           static_cast<uint>(estimated.y/BLOCK_SIZE),
     //           static_cast<uint>(estimated.z/BLOCK_SIZE)};
     //float3 localCoord = (estimated - make_float3(b.x*BLOCK_SIZE, b.y*BLOCK_SIZE, b.z*BLOCK_SIZE)) * (1 / BLOCK_SIZE);
-    //float ds = d_smoke[flatten(b.x, b.y, b.z) ];
+    //float ds = d_smoke[flatten(b.x, b.y, b.z) ];0
 
-    float dt = scalarLinearInt(d_temp, estimated, T_AMBIANT);
-    dt = dt * 2 * dev_Deltat[0];
+    float dt = scalarLinearInt(d_oldtemp, estimated, T_AMBIANT);
+    //dt = dt * 2 * dev_Deltat[0];
+    estimated = pos - alpha_m;
+    //Clip on boundaries faces
+    if(estimated.x < BLOCK_SIZE) estimated.x = BLOCK_SIZE;
+    if(estimated.y < BLOCK_SIZE) estimated.y = BLOCK_SIZE;
+    if(estimated.z < BLOCK_SIZE) estimated.z = BLOCK_SIZE;
+    if(estimated.x > GRID_SIZE - BLOCK_SIZE) estimated.x = GRID_SIZE - BLOCK_SIZE;
+    if(estimated.y > GRID_SIZE - BLOCK_SIZE) estimated.y = GRID_SIZE - BLOCK_SIZE;
+    if(estimated.z > GRID_SIZE - BLOCK_SIZE) estimated.z = GRID_SIZE - BLOCK_SIZE;
+    float dtR = TEMPERATURE_GAMMA * powf(scalarLinearInt(d_oldtemp, estimated, T_AMBIANT) - T_AMBIANT, 4);
+
     __syncthreads();
-    d_temp[k] = d_oldtemp[k] + dt;
+    //d_temp[k] = dt;
+    d_temp[k] = dt + dtR * 2*dev_Deltat[0];
 }
 
 void kernelLauncher(uchar4 *d_out,
@@ -312,31 +343,40 @@ void kernelLauncher(uchar4 *d_out,
                         blocksNeeded(Ld.z,M_in.z));
 
     // CFD
-    computeVorticity<<<gridSize, M_in>>>(d_vorticity, d_oldvel, d_ccvel);
-    HANDLE_ERROR(cudaPeekAtLastError());
-    HANDLE_ERROR(cudaDeviceSynchronize());
-    //advect(d_vel, d_oldvel, d_oldvel);
-    advect(d_temp, d_oldtemp, d_oldvel, T_AMBIANT);
-    advect(d_smokedensity, d_oldsmokedensity, d_oldvel, 0.f);
-    forceIncompressibility(d_vel, d_pressure);
-    velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity);
-    HANDLE_ERROR(cudaPeekAtLastError());
-    HANDLE_ERROR(cudaDeviceSynchronize());
     
+    
+    computeVorticity<<<gridSize, M_in>>>(d_vorticity, d_oldvel, d_ccvel); 
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
+    velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity);
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
+   
+    //forceIncompressibility(d_vel, d_pressure);
 
 
-    //tempAdvectionKernel<<<gridSize, M_in, smSz>>>(d_temp, d_oldtemp, d_oldvel);
+    //advect(d_vel, d_oldvel, d_oldvel);
     //HANDLE_ERROR(cudaPeekAtLastError());
     //HANDLE_ERROR(cudaDeviceSynchronize());
-//
-    //smokeAdvectionKernel<<<gridSize, M_in, smSz>>>(d_oldtemp, d_oldvel, d_smokedensity, d_oldsmokedensity);
-    //HANDLE_ERROR(cudaPeekAtLastError());
-    //HANDLE_ERROR(cudaDeviceSynchronize());
+    //advect(d_temp, d_oldtemp, d_vel, T_AMBIANT);
+    //advect(d_smokedensity, d_oldsmokedensity, d_vel, 0.f);
 
+
+
+    tempAdvectionKernel<<<gridSize, M_in>>>(d_temp, d_oldtemp, d_vel);
+    HANDLE_ERROR(cudaPeekAtLastError());
+    HANDLE_ERROR(cudaDeviceSynchronize());
+
+    smokeAdvectionKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_smokedensity, d_oldsmokedensity);
+    HANDLE_ERROR(cudaPeekAtLastError());
+    HANDLE_ERROR(cudaDeviceSynchronize());
+
+    sourcesKernel<<<gridSize, M_in>>>(d_smokedensity, d_temp);
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
     
     smokeRender(gridSize, d_out, d_smokedensity, d_smokeRadiance);
-    //tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
+    HANDLE_ERROR(cudaPeekAtLastError());
     HANDLE_ERROR(cudaDeviceSynchronize());
+
+    //tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
 }
 
 void resetVariables(float* d_temp,
@@ -344,7 +384,8 @@ void resetVariables(float* d_temp,
                     float3* d_vel, 
                     float3* d_oldvel, 
                     float* d_smokedensity,
-                    float* d_oldsmokedensity, 
+                    float* d_oldsmokedensity,
+                    float* d_pressure, 
                     dim3 Ld, BC bc, dim3 M_in) {
     const dim3 gridSizeC(blocksNeeded(GRID_COUNT, M_in.x), 
                          blocksNeeded(GRID_COUNT, M_in.y), 
@@ -353,9 +394,9 @@ void resetVariables(float* d_temp,
                          blocksNeeded(GRID_COUNT+1, M_in.y), 
                          blocksNeeded(GRID_COUNT+1, M_in.z));
     resetKernelCentered<<<gridSizeC, M_in>>>(d_temp, d_oldtemp, d_smokedensity, d_oldsmokedensity);
-    HANDLE_ERROR(cudaPeekAtLastError());
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
     resetKernelVelocity<<<gridSizeV, M_in>>>(d_vel, d_oldvel);
-    HANDLE_ERROR(cudaPeekAtLastError());
-
-    HANDLE_ERROR(cudaDeviceSynchronize());
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
+    resetPressure<<<gridSizeC, M_in>>>(d_pressure);
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
 }

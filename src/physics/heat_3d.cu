@@ -172,7 +172,7 @@ __global__ void sourcesKernel(float* d_smokedensity, float* d_temp){
     }   
 }
 
-__global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float* d_smokedensity, float3* d_vorticity){
+__global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float* d_smokedensity, float3* d_vorticity, float3 externalForce){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
@@ -182,9 +182,9 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, f
     // External forces
     float3 f = {0, 0, 0};
     float3 fext = {-0.,0,0. };
-    f = f + fext;
+    f = f + fext + externalForce;
     f = f + fconfinement(d_vorticity, k_x, k_y, k_z);    
-    f = f  + fbuoyancy(d_smokedensity, d_temp, k_x, k_y, k_z);
+    f = f + fbuoyancy(d_smokedensity, d_temp, k_x, k_y, k_z);
     
     //Boundary conditions
     if(k_x == 0 || k_x == GRID_COUNT - 1)
@@ -285,7 +285,19 @@ __global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smok
     d_smoke[k] = ds;
 
 }
-__global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_vel){
+__device__ float laplacian(float* field, float oobvalue, int k_x, int k_y, int k_z) {
+    float out = 0;
+    out += -6 * field[flatten(k_x,k_y,k_z)];
+    out += k_x < GRID_COUNT -1 ? field[flatten(k_x+1,k_y,k_z)] : oobvalue;
+    out += k_y < GRID_COUNT -1? field[flatten(k_x,k_y+1,k_z)] : oobvalue;
+    out += k_z < GRID_COUNT -1? field[flatten(k_x,k_y,k_z+1)] : oobvalue;
+    out += k_x > 0 ? field[flatten(k_x-1,k_y,k_z)] : oobvalue;
+    out += k_y > 0 ? field[flatten(k_x,k_y-1,k_z)] : oobvalue;
+    out += k_z > 0 ? field[flatten(k_x,k_y,k_z-1)] : oobvalue;
+    out /= BLOCK_SIZE * BLOCK_SIZE;
+    return out;
+}
+__global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_vel, float* lap){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
@@ -321,8 +333,9 @@ __global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_
     if(estimated.y > GRID_SIZE - BLOCK_SIZE) estimated.y = GRID_SIZE - BLOCK_SIZE;
     if(estimated.z > GRID_SIZE - BLOCK_SIZE) estimated.z = GRID_SIZE - BLOCK_SIZE;
     float dtR = TEMPERATURE_GAMMA * powf(scalarLinearInt(d_oldtemp, estimated, T_AMBIANT) - T_AMBIANT, 4);
-
+    lap[k] = laplacian(d_oldtemp, T_AMBIANT, k_x, k_y, k_z);
     __syncthreads();
+    dtR += TEMPERATURE_ALPHA * scalarLinearInt(lap, estimated, 0);
     //d_temp[k] = dt;
     d_temp[k] = dt + dtR * 2*dev_Deltat[0];
 }
@@ -338,6 +351,7 @@ void kernelLauncher(uchar4 *d_out,
                     float* d_smokedensity,
                     float* d_oldsmokedensity,
                     float * d_smokeRadiance,
+                    float3 externalForce,
                     int activeBuffer, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
     const dim3 gridSize(blocksNeeded(Ld.x, M_in.x), blocksNeeded(Ld.y, M_in.y), 
                         blocksNeeded(Ld.z,M_in.z));
@@ -347,7 +361,7 @@ void kernelLauncher(uchar4 *d_out,
     
     computeVorticity<<<gridSize, M_in>>>(d_vorticity, d_oldvel, d_ccvel); 
     HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
-    velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity);
+    velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity, externalForce);
     HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
    
     //forceIncompressibility(d_vel, d_pressure);
@@ -359,11 +373,11 @@ void kernelLauncher(uchar4 *d_out,
     //advect(d_temp, d_oldtemp, d_vel, T_AMBIANT);
     //advect(d_smokedensity, d_oldsmokedensity, d_vel, 0.f);
 
-
-
-    tempAdvectionKernel<<<gridSize, M_in>>>(d_temp, d_oldtemp, d_vel);
-    HANDLE_ERROR(cudaPeekAtLastError());
-    HANDLE_ERROR(cudaDeviceSynchronize());
+    float * d_lap;
+    HANDLE_ERROR(cudaMalloc(&d_lap, GRID_COUNT*GRID_COUNT*GRID_COUNT*sizeof(float)));
+    tempAdvectionKernel<<<gridSize, M_in>>>(d_temp, d_oldtemp, d_vel, d_lap);
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
+    HANDLE_ERROR(cudaFree(d_lap));    
 
     smokeAdvectionKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_smokedensity, d_oldsmokedensity);
     HANDLE_ERROR(cudaPeekAtLastError());

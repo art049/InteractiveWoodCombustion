@@ -48,6 +48,7 @@ void kernelLauncher(uchar4 *d_out,
                     float* d_smokedensity,
                     float* d_oldsmokedensity,
                     float * d_smokeRadiance,
+                    float3 externalForce,
                     int activeBuffer, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) ; 
 
 

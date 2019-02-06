@@ -65,6 +65,7 @@ void Physics::update() {
                        dev_grid3d->dev_smokeDensity0,
                        dev_grid3d->dev_smokeDensity1,
                        dev_grid3d->dev_smokeVoxelRadiance,
+                       externalForce,
                        activeBuffer,
                        dev_L3, bc, M_i, slice );
     else
@@ -79,6 +80,7 @@ void Physics::update() {
                        dev_grid3d->dev_smokeDensity1,
                        dev_grid3d->dev_smokeDensity0,
                        dev_grid3d->dev_smokeVoxelRadiance,
+                       externalForce,
                        activeBuffer,
                        dev_L3, bc, M_i, slice );
 
@@ -95,4 +97,11 @@ void Physics::reset(){
                    dev_grid3d->dev_smokeDensity1,
                    dev_grid3d->dev_pressure,
                    dev_L3, bc, M_i);
+    this->externalForce = make_float3(0,0,0);
+}
+
+void Physics::addExternalForce(float3 f){
+    this->externalForce.x += f.x;
+    this->externalForce.y += f.y;
+    this->externalForce.z += f.z;
 }

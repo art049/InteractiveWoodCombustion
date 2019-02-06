@@ -114,7 +114,7 @@ void init () {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glLineWidth (2.0); // Set the width of edges in GL_LINE polygon mode
-    glClearColor (.5f, .8f, .89f, 0.f); // Background color
+    glClearColor ((float)76/255, (float)154/255, (float)42/255, 0.f); // Background color
     colorResponses.resize (tree.positions ().size ());
     camera.resize (DEFAULT_SCREENWIDTH, DEFAULT_SCREENHEIGHT);
     try {
@@ -295,6 +295,24 @@ void key (unsigned char keyPressed, int x, int y) {
         break;
     }
 }
+void specialKey(int key, int x, int y)
+{
+    switch (key)
+    {
+    case GLUT_KEY_UP :
+        physics->addExternalForce(make_float3(0,0,-EXTERNAL_FORCE_DELTA));
+        break;
+    case GLUT_KEY_DOWN :
+        physics->addExternalForce(make_float3(0,0,EXTERNAL_FORCE_DELTA));
+        break;
+    case GLUT_KEY_LEFT :
+        physics->addExternalForce(make_float3(-EXTERNAL_FORCE_DELTA,0,0));
+        break;
+    case GLUT_KEY_RIGHT :
+        physics->addExternalForce(make_float3(EXTERNAL_FORCE_DELTA,0,0));
+        break;
+    }
+}
 
 void mouse (int button, int state, int x, int y) {
     camera.handleMouseClickEvent (button, state, x, y);
@@ -342,6 +360,7 @@ int main (int argc, char ** argv) {
     glutReshapeFunc (reshape);
     glutDisplayFunc (display);
     glutKeyboardFunc (key);
+    glutSpecialFunc(specialKey);
     glutMotionFunc (motion);
     glutMouseFunc (mouse);
     printUsage ();  

@@ -18,7 +18,7 @@
 #include "smoke_render.cuh"
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
-static const float Deltat[1] {0.03f}; 
+static const float Deltat[1] {0.005f}; 
 static const uint GRID_COUNT =  100;
 static const float GRID_SIZE = 1;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
@@ -27,19 +27,18 @@ static const float T_AMBIANT = 20.0f;
 static const float P_ATM = 0.0f;
 static const float BUOY_ALPHA = 3.3; // SMOKE DENSITY
 static const float BUOY_BETA = 2.; // TEMPERATURE
-static const uint SEMILAGRANGIAN_ITERS = 15;
-static const float VORTICITY_EPSILON = 1e-6;
-static const float TEMPERATURE_ALPHA = 8e-5;
+static const uint SEMILAGRANGIAN_ITERS = 5;
+static const float VORTICITY_EPSILON = 1e-2;
+static const float TEMPERATURE_ALPHA = 8e-4;//8e-5;
 static const float TEMPERATURE_GAMMA = -8e-7;
-static const int PRESSURE_JACOBI_ITERATIONS = 5;
-static const float SMOKE_EXTINCTION_COEFF = 8e1;
-static const float SMOKE_ALBEDO = 1;
-static const int SMOKE_CIRCULAR_RAY_COUNT = 200 ;
-static const float SMOKE_LIGHT_ANGLE = M_PI / 6;
-static const float SMOKE_RAY_DELTA_ANGLE = SMOKE_LIGHT_ANGLE/SMOKE_CIRCULAR_RAY_COUNT;
-static const float3 SMOKE_LIGHT_POS = {-1,0.5,2};
-static const float3 SMOKE_LIGHT_DIR = {-1,0.5,2};
-
+static const int PRESSURE_JACOBI_ITERATIONS = 15;
+static const float SMOKE_EXTINCTION_COEFF = 15e1;
+static const float SMOKE_ALBEDO = 0.4;
+static const int SMOKE_RAY_SQRT_COUNT = 300 ;
+static const float3 SMOKE_LIGHT_DIR = {1,0,0};
+static const float3 SMOKE_LIGHT_POS = {-1,0,0};
+static const float SMOKE_LIGHT_RADIANCE = 5e0;
+static const float EXTERNAL_FORCE_DELTA = 0.1;
 static const float heat_params[2] { 
                                  0.00500f,
                                  1.f } ; // \kappa 
@@ -53,11 +52,12 @@ private:
     Grid3d * grid3d;
     int activeBuffer = 0;
     bool gridEnabled = false;
+    bool raysEnabled = false;
     float * smokeQuadsPositions;
     uint * smokeIndexes;
     float * smokeQuadsColors;
     GLuint smokeQuadVBO, smokeQuadIndexVBO;
-    
+    float3 externalForce;
     GLuint smokeColorBufferObj = 0;
     cudaGraphicsResource *cuda_smokeColorBufferObj_resource;
 
@@ -72,6 +72,7 @@ public:
     void render();
     void update();
     void reset();
+    void addExternalForce(float3 f);
 };
 
 #endif

@@ -18,20 +18,20 @@
 #include "smoke_render.cuh"
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
-static const float Deltat[1] {0.005f}; 
-static const uint GRID_COUNT =  100;
+static const float Deltat[1] {0.010f}; 
+static const uint GRID_COUNT =  10;
 static const float GRID_SIZE = 1;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
 static const dim3 M_i { 8 , 8 , 8  };
 static const float T_AMBIANT = 20.0f;
 static const float P_ATM = 0.0f;
-static const float BUOY_ALPHA = 3.3; // SMOKE DENSITY
-static const float BUOY_BETA = 2.; // TEMPERATURE
+static const float BUOY_ALPHA = 0.6; // SMOKE DENSITY
+static const float BUOY_BETA = 0.1; // TEMPERATURE
 static const uint SEMILAGRANGIAN_ITERS = 5;
-static const float VORTICITY_EPSILON = 1e-2;
-static const float TEMPERATURE_ALPHA = 8e-4;//8e-5;
-static const float TEMPERATURE_GAMMA = -8e-7;
-static const int PRESSURE_JACOBI_ITERATIONS = 15;
+static const float VORTICITY_EPSILON = 1e-1;
+static const float TEMPERATURE_ALPHA = 8e-5;//8e-5;
+static const float TEMPERATURE_GAMMA = -4e-7;//8e-7;
+static const int PRESSURE_JACOBI_ITERATIONS = 20;
 static const float SMOKE_EXTINCTION_COEFF = 15e1;
 static const float SMOKE_ALBEDO = 0.4;
 static const int SMOKE_RAY_SQRT_COUNT = 300 ;
@@ -53,10 +53,12 @@ private:
     int activeBuffer = 0;
     bool gridEnabled = false;
     bool raysEnabled = false;
+    bool sourcesEnabled = true;
     float * smokeQuadsPositions;
     uint * smokeIndexes;
     float * smokeQuadsColors;
-    GLuint smokeQuadVBO, smokeQuadIndexVBO;
+    GLuint smokeQuadVBO;
+    GLuint smokeQuadIndexBO;
     float3 externalForce;
     GLuint smokeColorBufferObj = 0;
     cudaGraphicsResource *cuda_smokeColorBufferObj_resource;
@@ -65,11 +67,13 @@ public:
     Physics();
     ~Physics();
     void initSmokeQuads();
-    void renderSmokeQuads();
+    void renderSmokeQuads(uint cameraAxis);
     void renderGrid();
     void renderLightRays();
+    void renderExternalForce();
     inline void toggleGrid() { gridEnabled = !gridEnabled; };
-    void render();
+    inline void toggleSources() { sourcesEnabled = !sourcesEnabled; };
+    void render(uint cameraAxis);
     void update();
     void reset();
     void addExternalForce(float3 f);

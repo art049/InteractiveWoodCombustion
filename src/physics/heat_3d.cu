@@ -352,6 +352,7 @@ void kernelLauncher(uchar4 *d_out,
                     float* d_oldsmokedensity,
                     float * d_smokeRadiance,
                     float3 externalForce,
+                    bool sourcesEnabled,
                     int activeBuffer, dim3 Ld, BC bc, dim3 M_in, unsigned int slice) {
     const dim3 gridSize(blocksNeeded(Ld.x, M_in.x), blocksNeeded(Ld.y, M_in.y), 
                         blocksNeeded(Ld.z,M_in.z));
@@ -364,7 +365,7 @@ void kernelLauncher(uchar4 *d_out,
     velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity, externalForce);
     HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
    
-    //forceIncompressibility(d_vel, d_pressure);
+    forceIncompressibility(d_vel, d_pressure);
 
 
     //advect(d_vel, d_oldvel, d_oldvel);
@@ -382,9 +383,11 @@ void kernelLauncher(uchar4 *d_out,
     smokeAdvectionKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_smokedensity, d_oldsmokedensity);
     HANDLE_ERROR(cudaPeekAtLastError());
     HANDLE_ERROR(cudaDeviceSynchronize());
-
-    sourcesKernel<<<gridSize, M_in>>>(d_smokedensity, d_temp);
-    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
+    
+    if(sourcesEnabled){
+        sourcesKernel<<<gridSize, M_in>>>(d_smokedensity, d_temp);
+        HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
+    }
     
     smokeRender(gridSize, d_out, d_smokedensity, d_smokeRadiance);
     HANDLE_ERROR(cudaPeekAtLastError());

@@ -119,7 +119,7 @@ __global__ void prepareJacobiMethod(float3* d_vel, float* d_f) {
         d_f[k] = d_vel[vflatten(k_x+1, k_y, k_z)].x - d_vel[vflatten(k_x, k_y, k_z)].x + 
                  d_vel[vflatten(k_x, k_y+1, k_z)].y - d_vel[vflatten(k_x, k_y, k_z)].y + 
                  d_vel[vflatten(k_x, k_y, k_z+1)].z - d_vel[vflatten(k_x, k_y, k_z)].z ;
-        d_f[k] /= BLOCK_SIZE * dev_Deltat[0];
+        d_f[k] /= BLOCK_SIZE ;//* dev_Deltat[0];
     }
     else
         d_f[k] = 0;
@@ -135,24 +135,24 @@ __global__ void jacobiIterations(float * d_pressure, float * d_temppressure, flo
     float * d_oldpressure = d_pressure;
     float * d_newpressure = d_temppressure;
     float * tmp;
-    __syncthreads();
     for(int i=0; i < PRESSURE_JACOBI_ITERATIONS; i++){
+        __syncthreads();
         d_newpressure[k] = d_oldpressure[flatten(k_x, k_y, k_z-1)] +
                            d_oldpressure[flatten(k_x, k_y-1, k_z)] +
                            d_oldpressure[flatten(k_x-1, k_y, k_z)] +
                            d_oldpressure[flatten(k_x+1, k_y, k_z)] +
                            d_oldpressure[flatten(k_x, k_y+1, k_z)] +
                            d_oldpressure[flatten(k_x, k_y, k_z+1)] ;
-        d_newpressure[k] /= 6;
         d_newpressure[k] -= BLOCK_SIZE * BLOCK_SIZE * d_f[k];
+        d_newpressure[k] /= 6;
         tmp = d_newpressure;
         d_newpressure = d_oldpressure;
         d_oldpressure  = tmp;
     }
     d_pressure[k] = d_oldpressure[k];
-    //if(d_abs(k_z - GRID_COUNT/2) * d_abs(k_z - GRID_COUNT/2) + 
-    //d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
-    //d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*5*25)){
+    //if(fabsf(k_z - GRID_COUNT/2) * fabsf(k_z - GRID_COUNT/2) + 
+    //   fabsf(k_y - GRID_COUNT/2) * fabsf(k_y - GRID_COUNT/2) +
+    //   fabsf(k_x - GRID_COUNT/2) * fabsf(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*5*25)){
     //    printf("%f\n", d_pressure[k]);
     //}
 }
@@ -184,6 +184,8 @@ void forceIncompressibility(float3 * d_vel, float* d_pressure){
                         blocksNeeded(GRID_COUNT, M_i.z));
     float * d_f;
     HANDLE_ERROR(cudaMalloc(&d_f, NFLAT*sizeof(float)));
+    resetPressure<<<gridSize, M_i>>>(d_pressure);
+    HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
     float * d_pressure1;    
     HANDLE_ERROR(cudaMalloc(&d_pressure1, NFLAT*sizeof(float)));
     resetPressure<<<gridSize, M_i>>>(d_pressure1);

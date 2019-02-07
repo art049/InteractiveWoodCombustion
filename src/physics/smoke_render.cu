@@ -111,11 +111,12 @@ __global__ void generateSmokeColorBuffer( uchar4* dev_out, const float* d_smoke,
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
     if(isnan(d_smokeRadiance[k]) || isinf(d_smokeRadiance[k])) d_smokeRadiance[k] = 0;
+    const unsigned char transparency = 255;// clip((int) (expf(-(fabsf(SMOKE_EXTINCTION_COEFF/d_smoke[k]))* BLOCK_SIZE)*255.f));
     const unsigned char intensity = clip((int) (d_smokeRadiance[k]*255.f));
-    //if(d_smokeRadiance[k] != 0)
-    //    printf("radiance %f %d \n", d_smokeRadiance[k], intensity);
+    
+    if(intensity == 0 && transparency==255)
+        printf("radiance %f %d smoke %f\n", d_smokeRadiance[k], intensity,d_smoke[k]);
     //const unsigned char intensity = clip((int) (d_smoke[k]*255.f));
-    const unsigned char transparency = clip((int) (expf(-(SMOKE_EXTINCTION_COEFF/d_smoke[k])* BLOCK_SIZE)*255.f));
     for(uint i = 0; i < 4; i++){
         dev_out[4*k+i].x = intensity;
         dev_out[4*k+i].z = intensity;

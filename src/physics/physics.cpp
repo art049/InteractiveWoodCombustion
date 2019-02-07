@@ -66,6 +66,7 @@ void Physics::update() {
                        dev_grid3d->dev_smokeDensity1,
                        dev_grid3d->dev_smokeVoxelRadiance,
                        externalForce,
+                       sourcesEnabled,
                        activeBuffer,
                        dev_L3, bc, M_i, slice );
     else
@@ -81,6 +82,7 @@ void Physics::update() {
                        dev_grid3d->dev_smokeDensity0,
                        dev_grid3d->dev_smokeVoxelRadiance,
                        externalForce,
+                       sourcesEnabled,
                        activeBuffer,
                        dev_L3, bc, M_i, slice );
 

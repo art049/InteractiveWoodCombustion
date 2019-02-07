@@ -252,12 +252,21 @@ void reshape(int w, int h) {
 
 void display () {
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    camera.apply (); 
+    camera.apply ();
     if(updatePhysics) physics->update();
     renderInitialCamera();
     renderScene ();
     //renderSmoke ();
-    physics->render();
+    uint cameraAxis;
+    Vec3f campos;
+    camera.getPos(campos);
+    if(fabs(campos[0]) >= fabs(campos[1]) && fabs(campos[0]) >= fabs(campos[1]))
+        cameraAxis = 0;
+    else if(fabs(campos[1]) >= fabs(campos[0]) && fabs(campos[1]) >= fabs(campos[2]))
+        cameraAxis = 1;
+    else cameraAxis = 2;
+    cout << campos << "main ax " << cameraAxis << endl;
+    physics->render(cameraAxis);
     glFlush ();
     glutSwapBuffers (); 
 }
@@ -283,6 +292,9 @@ void key (unsigned char keyPressed, int x, int y) {
         break;
     case 'g':
         physics->toggleGrid();
+        break;
+    case 's':
+        physics->toggleSources();
         break;
     case 'r':
         physics-> reset();

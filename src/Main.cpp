@@ -108,7 +108,7 @@ void init () {
     glDepthFunc (GL_LESS); // Specify the depth test for the z-buffer
     glEnable (GL_DEPTH_TEST); // Enable the z-buffer in the rasterization
     glEnableClientState (GL_VERTEX_ARRAY);
-    glEnableClientState (GL_NORMAL_ARRAY);
+    //glEnableClientState (GL_NORMAL_ARRAY);
     glEnableClientState (GL_COLOR_ARRAY);
     glEnable (GL_NORMALIZE);
     glEnable(GL_BLEND);
@@ -255,17 +255,17 @@ void display () {
     camera.apply ();
     if(updatePhysics) physics->update();
     renderInitialCamera();
-    renderScene ();
+    //renderScene ();
     //renderSmoke ();
     uint cameraAxis;
     Vec3f campos;
     camera.getPos(campos);
-    if(fabs(campos[0]) >= fabs(campos[1]) && fabs(campos[0]) >= fabs(campos[1]))
+    if(fabs(campos[0]) >= fabs(campos[1]) && fabs(campos[0]) >= fabs(campos[2]))
         cameraAxis = 0;
     else if(fabs(campos[1]) >= fabs(campos[0]) && fabs(campos[1]) >= fabs(campos[2]))
         cameraAxis = 1;
     else cameraAxis = 2;
-    cout << campos << "main ax " << cameraAxis << endl;
+    //cout << campos << "main ax " << cameraAxis << endl;
     physics->render(cameraAxis);
     glFlush ();
     glutSwapBuffers (); 
@@ -322,6 +322,12 @@ void specialKey(int key, int x, int y)
         break;
     case GLUT_KEY_RIGHT :
         physics->addExternalForce(make_float3(EXTERNAL_FORCE_DELTA,0,0));
+        break;
+    case GLUT_KEY_PAGE_UP :
+        physics->addExternalForce(make_float3(0, EXTERNAL_FORCE_DELTA, 0));
+        break;
+    case GLUT_KEY_PAGE_DOWN :
+        physics->addExternalForce(make_float3(0, -EXTERNAL_FORCE_DELTA,0));
         break;
     }
 }

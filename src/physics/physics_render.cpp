@@ -9,6 +9,8 @@ inline int flatten(int col, int row, int z) {
     return col + row*(GRID_COUNT+1) + z*(GRID_COUNT+1)*(GRID_COUNT+1);
 }
 
+#define BUFFER_OFFSET(i) ((char *)NULL + (i))
+
 void Physics::initSmokeQuads(){
     int nflat = grid3d->NFLAT();
     smokeQuadsPositions = new float[3* 4*3*nflat];
@@ -76,11 +78,11 @@ void Physics::renderSmokeQuads(uint cameraAxis){
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
     glBindBuffer(GL_ARRAY_BUFFER, smokeQuadVBO);
-    glVertexPointer (3, GL_FLOAT, 0, 4*3*grid3d->NFLAT() );
+    glVertexPointer (3, GL_FLOAT, 0, BUFFER_OFFSET(cameraAxis * 4*3*grid3d->NFLAT()*sizeof(float)));
     glBindBuffer(GL_ARRAY_BUFFER, smokeColorBufferObj);
     glColorPointer (4, GL_UNSIGNED_BYTE, 0, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, smokeQuadIndexBO);
-    glDrawElements (GL_QUADS,/*4**/grid3d->NFLAT(), GL_UNSIGNED_INT, (void*) 0);
+    glDrawElements (GL_QUADS,4*grid3d->NFLAT(), GL_UNSIGNED_INT, (void*) 0);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -161,8 +163,14 @@ void Physics::renderExternalForce(){
 }
 
 void Physics::render(uint cameraAxis) {
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glScalef(2,2,2);
+    glTranslatef(-GRID_SIZE/2, -GRID_SIZE/2, -GRID_SIZE/2);
     if(gridEnabled) renderGrid();
     if(raysEnabled) renderLightRays();
     renderSmokeQuads(cameraAxis);
+    glPopMatrix();
+
     renderExternalForce();
 }

@@ -166,13 +166,13 @@ __global__ void sourcesKernel(float* d_smokedensity, float* d_temp){
     const int k = flatten(k_x, k_y, k_z);
     if(d_abs(k_z - GRID_COUNT/2) * d_abs(k_z - GRID_COUNT/2) + 
     d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
-    d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (5*5*25)){
-        d_smokedensity[k] =1;
-        d_temp[k] = T_AMBIANT + 250.f;
+    d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (7*25)){
+        d_smokedensity[k] =2.5;
+        d_temp[k] = T_AMBIANT + 100.f;
     }   
 }
 
-__global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float* d_smokedensity, float3* d_vorticity, float3 externalForce){
+__global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, float3* d_alpha_m, float* d_smokedensity, float3* d_vorticity, float3 externalForce){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
@@ -197,6 +197,8 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, f
     // Semi Lagrangian Advection
     float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
     float3 alpha_m = getAlpham(d_oldvel, pos, k);
+    d_alpha_m[k] = alpha_m;
+
     // Backtracing 
     float3 estimated = pos - 2 * alpha_m;
     //Clip on boundaries faces
@@ -252,7 +254,7 @@ __device__ float scalarLinearInt(float* scalarField, float3 pos, float oobvalue)
     float uz = (1-ty) * byuz + ty * uyuz;
     return (1-tz) * bz + tz * uz;
 }
-__global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smoke, float* d_oldsmoke){
+__global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float3* d_alpha_m,float* d_smoke, float* d_oldsmoke){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
@@ -261,7 +263,8 @@ __global__ void smokeAdvectionKernel(float *d_temp, float3* d_vel, float* d_smok
     // Advection
     float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
     //float3 pos = make_float3((k_x)*BLOCK_SIZE, (k_y)*BLOCK_SIZE, (k_z)*BLOCK_SIZE);
-    float3 alpha_m = getAlpham(d_vel, pos, k);
+    //float3 alpha_m = getAlpham(d_vel, pos, k);
+    float3 alpha_m = d_alpha_m[k];
     // Backtracing 
     float3 estimated = pos - 2 * alpha_m;
      //Clip on boundaries faces
@@ -297,16 +300,18 @@ __device__ float laplacian(float* field, float oobvalue, int k_x, int k_y, int k
     out /= BLOCK_SIZE * BLOCK_SIZE;
     return out;
 }
-__global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_vel, float* lap){
+__global__ void tempAdvectionKernel(float *d_temp, float * d_oldtemp, float3* d_vel,float3* d_alpha_m, float* lap){
     const int k_x = threadIdx.x + blockDim.x * blockIdx.x;
     const int k_y = threadIdx.y + blockDim.y * blockIdx.y;
     const int k_z = threadIdx.z + blockDim.z * blockIdx.z;
     if ((k_x >= dev_Ld[0] ) || (k_y >= dev_Ld[1] ) || (k_z >= dev_Ld[2])) return;
     const int k = flatten(k_x, k_y, k_z, dev_Ld[0], dev_Ld[1],dev_Ld[2]);
     // Advection
-    //float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
-    float3 pos = make_float3((k_x)*BLOCK_SIZE, (k_y)*BLOCK_SIZE, (k_z)*BLOCK_SIZE);
-    float3 alpha_m = getAlpham(d_vel, pos, k);
+    float3 pos = make_float3((k_x+0.5f)*BLOCK_SIZE, (k_y+0.5f)*BLOCK_SIZE, (k_z+0.5f)*BLOCK_SIZE);
+    //float3 pos = make_float3((k_x)*BLOCK_SIZE, (k_y)*BLOCK_SIZE, (k_z)*BLOCK_SIZE);
+    //float3 alpha_m = getAlpham(d_vel, pos, k);
+    float3 alpha_m = d_alpha_m[k];
+    d_alpha_m[k] = alpha_m;
     // Backtracing 
     float3 estimated = pos - 2 * alpha_m;
     // Clipping
@@ -358,29 +363,22 @@ void kernelLauncher(uchar4 *d_out,
                         blocksNeeded(Ld.z,M_in.z));
 
     // CFD
-    
+    float * d_lap;
+    float3 * d_alpha_m;
+    HANDLE_ERROR(cudaMalloc(&d_lap, GRID_COUNT*GRID_COUNT*GRID_COUNT*sizeof(float)));
+    HANDLE_ERROR(cudaMalloc(&d_alpha_m, GRID_COUNT*GRID_COUNT*GRID_COUNT*sizeof(float3)));
     
     computeVorticity<<<gridSize, M_in>>>(d_vorticity, d_oldvel, d_ccvel); 
     HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
-    velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_oldsmokedensity, d_vorticity, externalForce);
+    velocityKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_oldvel, d_alpha_m, d_oldsmokedensity, d_vorticity, externalForce);
     HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
    
     forceIncompressibility(d_vel, d_pressure);
 
-
-    //advect(d_vel, d_oldvel, d_oldvel);
-    //HANDLE_ERROR(cudaPeekAtLastError());
-    //HANDLE_ERROR(cudaDeviceSynchronize());
-    //advect(d_temp, d_oldtemp, d_vel, T_AMBIANT);
-    //advect(d_smokedensity, d_oldsmokedensity, d_vel, 0.f);
-
-    float * d_lap;
-    HANDLE_ERROR(cudaMalloc(&d_lap, GRID_COUNT*GRID_COUNT*GRID_COUNT*sizeof(float)));
-    tempAdvectionKernel<<<gridSize, M_in>>>(d_temp, d_oldtemp, d_vel, d_lap);
+    tempAdvectionKernel<<<gridSize, M_in>>>(d_temp, d_oldtemp, d_vel, d_alpha_m, d_lap);
     HANDLE_ERROR(cudaPeekAtLastError()); HANDLE_ERROR(cudaDeviceSynchronize());
-    HANDLE_ERROR(cudaFree(d_lap));    
-
-    smokeAdvectionKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_smokedensity, d_oldsmokedensity);
+    
+    smokeAdvectionKernel<<<gridSize, M_in>>>(d_oldtemp, d_vel, d_alpha_m ,d_smokedensity, d_oldsmokedensity);
     HANDLE_ERROR(cudaPeekAtLastError());
     HANDLE_ERROR(cudaDeviceSynchronize());
     
@@ -392,7 +390,9 @@ void kernelLauncher(uchar4 *d_out,
     smokeRender(gridSize, d_out, d_smokedensity, d_smokeRadiance);
     HANDLE_ERROR(cudaPeekAtLastError());
     HANDLE_ERROR(cudaDeviceSynchronize());
-
+    
+    HANDLE_ERROR(cudaFree(d_alpha_m));    
+    HANDLE_ERROR(cudaFree(d_lap));    
     //tempKernel<<<gridSize, M_in, smSz>>>(d_temp, bc);
 }
 

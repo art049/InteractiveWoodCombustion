@@ -1,4 +1,4 @@
-# IG3DA: Interactive Wood Combustion for Botanical Tree Models [2017 Pirk et al.] 
+# Interactive Wood Combustion for Botanical Tree Models [2017 Pirk et al.] 
 
 The compiled binary require CUDA compute capability 61
 

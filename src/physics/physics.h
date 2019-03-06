@@ -18,23 +18,23 @@
 #include "smoke_render.cuh"
 //extern GPUAnim2dTex* testGPUAnim2dTex;
 
-static const float Deltat[1] {0.010f}; 
-static const uint GRID_COUNT =  10;
+static const float Deltat[1] {0.05f}; 
+static const uint GRID_COUNT =  60;
 static const float GRID_SIZE = 1;
 static const float BLOCK_SIZE = GRID_SIZE/GRID_COUNT;
 static const dim3 M_i { 8 , 8 , 8  };
 static const float T_AMBIANT = 20.0f;
 static const float P_ATM = 0.0f;
-static const float BUOY_ALPHA = 0.6; // SMOKE DENSITY
+static const float BUOY_ALPHA = 0.3; // SMOKE DENSITY
 static const float BUOY_BETA = 0.1; // TEMPERATURE
 static const uint SEMILAGRANGIAN_ITERS = 5;
-static const float VORTICITY_EPSILON = 1e-1;
+static const float VORTICITY_EPSILON = 1;
 static const float TEMPERATURE_ALPHA = 8e-5;//8e-5;
 static const float TEMPERATURE_GAMMA = -4e-7;//8e-7;
-static const int PRESSURE_JACOBI_ITERATIONS = 20;
+static const int PRESSURE_JACOBI_ITERATIONS = 10;
 static const float SMOKE_EXTINCTION_COEFF = 15e1;
-static const float SMOKE_ALBEDO = 0.4;
-static const int SMOKE_RAY_SQRT_COUNT = 300 ;
+static const float SMOKE_ALBEDO = 0.7;
+static const int SMOKE_RAY_SQRT_COUNT = 60 ;
 static const float3 SMOKE_LIGHT_DIR = {1,0,0};
 static const float3 SMOKE_LIGHT_POS = {-1,0,0};
 static const float SMOKE_LIGHT_RADIANCE = 5e0;

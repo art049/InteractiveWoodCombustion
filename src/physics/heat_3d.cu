@@ -167,7 +167,7 @@ __global__ void sourcesKernel(float* d_smokedensity, float* d_temp){
     if(d_abs(k_z - GRID_COUNT/2) * d_abs(k_z - GRID_COUNT/2) + 
     d_abs(k_y - GRID_COUNT/2) * d_abs(k_y - GRID_COUNT/2) +
     d_abs(k_x - GRID_COUNT/2) * d_abs(k_x - GRID_COUNT/2) < GRID_COUNT  *GRID_COUNT / (7*25)){
-        d_smokedensity[k] =2.5;
+        d_smokedensity[k] =1.5;
         d_temp[k] = T_AMBIANT + 100.f;
     }   
 }
@@ -181,7 +181,7 @@ __global__ void velocityKernel(float *d_temp, float3* d_vel, float3* d_oldvel, f
     
     // External forces
     float3 f = {0, 0, 0};
-    float3 fext = {-0.,0,0. };
+    float3 fext = {-0.,0.15,0. };
     f = f + fext + externalForce;
     f = f + fconfinement(d_vorticity, k_x, k_y, k_z);    
     f = f + fbuoyancy(d_smokedensity, d_temp, k_x, k_y, k_z);

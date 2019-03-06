@@ -1,4 +1,4 @@
-# Interactive Wood Combustion for Botanical Tree Models [2017 Pirk et al.] 
+# Interactive Wood Combustion for Botanical Tree Models [2017 Pirk et al.](http://www.pirk.info/papers/Pirk.etal-2017-WoodCombustion.pdf)
 
 The compiled binary require CUDA compute capability 61
 

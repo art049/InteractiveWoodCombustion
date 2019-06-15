@@ -2,11 +2,13 @@
 
 
 ## Requirements
-CUDA 9.0 
 
-g++-5 (at least g++<6, otherwise some compilation problems may appear)
-
-libcublas and libcusparse
+- CUDA 9.0 
+- g++-5 (at least g++<6, otherwise some compilation problems may appear)
+- Glut
+- OpenGL Mathematics (GLM) library
+- libcublas
+- libcusparse
 
 ## Compilation
 First, you need to edit the Makefile.
